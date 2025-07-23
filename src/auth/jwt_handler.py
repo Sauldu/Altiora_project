@@ -6,12 +6,13 @@ from typing import Optional, Dict, Any
 import jwt
 from fastapi import HTTPException, status
 from pydantic import BaseSettings
-
+from src.security.secrets_manager import SecretsManager
 from .models import TokenData
 
 
 class JWTSettings(BaseSettings):
     """Configuration JWT"""
+    JWT_SECRET = SecretsManager.get_secret("JWT_SECRET_KEY")
     secret_key: str = "your-secret-key-change-in-production"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30

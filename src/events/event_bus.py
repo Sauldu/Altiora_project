@@ -1,78 +1,57 @@
 # src/events/event_bus.py
 import asyncio
-import json
 from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
 from typing import Dict, List, Callable, Any
+
+import redis_client
+
+
+class EventType(Enum):
+    SFD_UPLOADED = "sfd.uploaded"
+    ANALYSIS_COMPLETED = "analysis.completed"
+    TESTS_GENERATED = "tests.generated"
+    PIPELINE_FAILED = "pipeline.failed"
 
 
 @dataclass
 class Event:
-    """Événement du système"""
-    type: str
+    type: EventType
     payload: Dict[str, Any]
-    timestamp: datetime = None
-    correlation_id: str = None
-
-    def __post_init__(self):
-        if not self.timestamp:
-            self.timestamp = datetime.utcnow()
+    timestamp: datetime
+    correlation_id: str
 
 
 class EventBus:
-    """Bus d'événements asynchrone"""
+    def __init__(self):
+        self._handlers: Dict[EventType, List[Callable]] = {}
+        self._queue: asyncio.Queue = asyncio.Queue()
+        self._running = False
 
-    def __init__(self, redis_client):
-        self.redis = redis_client
-        self.handlers: Dict[str, List[Callable]] = {}
-        self.running = False
-
-    def subscribe(self, event_type: str, handler: Callable):
-        """S'abonner à un type d'événement"""
-        if event_type not in self.handlers:
-            self.handlers[event_type] = []
-        self.handlers[event_type].append(handler)
+    def subscribe(self, event_type: EventType, handler: Callable):
+        if event_type not in self._handlers:
+            self._handlers[event_type] = []
+        self._handlers[event_type].append(handler)
 
     async def publish(self, event: Event):
-        """Publier un événement"""
-        # Publier dans Redis pour distribution
-        await self.redis.publish(
-            f"events:{event.type}",
-            json.dumps({
-                "type": event.type,
-                "payload": event.payload,
-                "timestamp": event.timestamp.isoformat(),
-                "correlation_id": event.correlation_id
-            })
-        )
+        await self._queue.put(event)
 
     async def start(self):
-        """Démarrer l'écoute des événements"""
-        self.running = True
-        pubsub = self.redis.pubsub()
+        self._running = True
+        while self._running:
+            try:
+                event = await asyncio.wait_for(self._queue.get(), timeout=1.0)
+                await self._process_event(event)
+            except asyncio.TimeoutError:
+                continue
 
-        # S'abonner aux patterns d'événements
-        await pubsub.psubscribe("events:*")
-
-        async for message in pubsub.listen():
-            if message["type"] == "pmessage":
-                await self._handle_message(message)
-
-    async def _handle_message(self, message):
-        """Traiter un message reçu"""
-        try:
-            data = json.loads(message["data"])
-            event = Event(**data)
-
-            # Appeler les handlers
-            if event.type in self.handlers:
-                tasks = [
-                    handler(event)
-                    for handler in self.handlers[event.type]
-                ]
-                await asyncio.gather(*tasks, return_exceptions=True)
-        except Exception as e:
-            logger.error(f"Erreur traitement événement: {e}")
+    async def _process_event(self, event: Event):
+        handlers = self._handlers.get(event.type, [])
+        await asyncio.gather(
+            *[handler(event) for handler in handlers],
+            return_exceptions=True
+        )
 
 
 # Utilisation

@@ -49,9 +49,15 @@ class Qwen3Config:
 # ------------------------------------------------------------------
 class Qwen3Trainer:
     def __init__(self, cfg: Qwen3Config) -> None:
+        self.config_path = Path("configs/training_config.json")
+        self.config = self._load_config()
         self.cfg = cfg
         self.device = torch.device("cpu")
         self._check_ram()
+
+    def _load_config(self):
+        with open(self.config_path, 'r') as f:
+            return json.load(f)
 
     # --------------------------------------------------------------
     # Helpers

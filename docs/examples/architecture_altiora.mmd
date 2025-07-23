@@ -1,0 +1,95 @@
+%%{init: {'theme': 'default', 'flowchart.arrowMarkerAbsolute': true, 'flowchart.useMaxWidth': true}}%%
+flowchart TD
+    %% Styles pour une meilleure lisibilité
+    classDef userLayer fill:#e1f5fe,stroke:#01579b,color:#000;
+    classDef securityLayer fill:#fce4ec,stroke:#880e4f,color:#000;
+    classDef coreLayer fill:#f3e5f5,stroke:#4a148c,color:#000;
+    classDef modelLayer fill:#e8f5e8,stroke:#1b5e20,color:#000;
+    classDef serviceLayer fill:#fff8e1,stroke:#ff6f00,color:#000;
+    classDef infraLayer fill:#efebe9,stroke:#3e2723,color:#000;
+    classDef obsLayer fill:#f1f8ff,stroke:#0d47a1,color:#000;
+
+    %% 1️⃣ Couche Utilisateur
+    CLI([CLI altiora]):::userLayer
+    UI([React Dashboard]):::userLayer
+
+    %% 2️⃣ Sécurité & Auth
+    SEC([Secrets Manager]):::securityLayer
+    JWT([JWT Handler]):::securityLayer
+    TOX([Toxicity Guard]):::securityLayer
+    PRIV([Privacy Guard]):::securityLayer
+    EMER([Emergency Handler]):::securityLayer
+
+    %% 3️⃣ Orchestrateur Central
+    ORC([Orchestrator]):::coreLayer
+    EVT([Event Bus]):::coreLayer
+    WRK([Workflow Engine]):::coreLayer
+
+    %% 4️⃣ Modèles IA
+    QWEN([Qwen3 Interface]):::modelLayer
+    STAR([StarCoder2 Interface]):::modelLayer
+    FT([Fine-Tuning LoRA]):::modelLayer
+
+    %% 5️⃣ Micro-services
+    OCR([OCR Service]):::serviceLayer
+    ALM([ALM Service]):::serviceLayer
+    EXC([Excel Service]):::serviceLayer
+    PLW([Playwright Service]):::serviceLayer
+
+    %% 6️⃣ Infrastructure
+    RED[(Redis Cache)]:::infraLayer
+    SQL[(SQLite Auth)]:::infraLayer
+
+    %% 7️⃣ Observabilité
+    MET([Prometheus]):::obsLayer
+    LOG([Encrypted Logs]):::obsLayer
+    MON([Real-Time Monitor]):::obsLayer
+
+    %% Liens verticaux – lecture de haut en bas
+
+    %% Couche Utilisateur vers Sécurité
+    CLI --> SEC
+    UI --> SEC
+
+    %% Sécurité vers ses composants et Orchestrateur
+    SEC --> JWT
+    SEC --> TOX
+    SEC --> PRIV
+    SEC --> EMER
+    SEC --> ORC
+
+    %% Orchestrateur vers ses composants
+    ORC --> EVT
+    ORC --> WRK
+
+    %% Event Bus vers Modèles IA
+    EVT --> QWEN
+    EVT --> STAR
+
+    %% Modèles IA vers Fine-Tuning
+    QWEN --> FT
+    STAR --> FT
+
+    %% Workflow Engine vers Micro-services et Infrastructure
+    WRK --> OCR
+    WRK --> ALM
+    WRK --> EXC
+    WRK --> PLW
+    WRK --> RED
+
+    %% Sécurité vers Infrastructure
+    SEC --> SQL
+
+    %% Micro-services vers Observabilité
+    OCR --> MET
+    ALM --> MET
+    EXC --> MET
+    PLW --> MET
+
+    %% Gardes de Sécurité vers Emergency Handler
+    TOX --> EMER
+    PRIV --> EMER
+
+    %% Emergency Handler vers Logs et Monitoring
+    EMER --> LOG
+    LOG --> MON

@@ -1,136 +1,133 @@
 """
-StateManager – Gestionnaire d’état centralisé
-Responsabilités :
-- Sessions utilisateur
-- Cache inter-services
-- Progression des pipelines
-- Persistance temporaire
+StateManager – gestionnaire d’état centralisé basé sur Redis
+- Pipeline progress
+- Session state
+- Cache court terme
+- Fallback mémoire si Redis est down
 """
 
 import asyncio
 import json
-import uuid
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
-from pathlib import Path
 
 import redis.asyncio as redis
-from src.infrastructure.redis_config import get_redis_client
 
 
 class StateManager:
-    """Singleton léger pour l’état global de l’application"""
+    """Singleton-like state manager with Redis & memory fallback"""
 
-    def __init__(self, redis_url: str = "redis://localhost:6379"):
-        self.redis: Optional[redis.Redis] = None
-        self.local_cache: Dict[str, Any] = {}
-        self.temp_dir = Path("temp/state")
-        self.temp_dir.mkdir(parents=True, exist_ok=True)
+    def __init__(self, redis_url: str, *, ttl: int = 3600) -> None:
+        self._redis_url: str = redis_url
+        self._ttl: int = ttl
+        self._redis: Optional[redis.Redis] = None
+        self._memory_cache: Dict[str, Any] = {}  # fallback
+
+    # ------------------------------------------------------------------
+    # Lifecycle
+    # ------------------------------------------------------------------
 
     async def initialize(self) -> None:
-        """Connexion Redis ou fallback mémoire"""
+        """Connect or fallback to memory"""
         try:
-            self.redis = await get_redis_client()
-        except Exception as e:
-            self.redis = None
-            print(f"⚠️ Redis non disponible : {e}")
+            self._redis = await redis.from_url(
+                self._redis_url, decode_responses=True
+            )
+            await self._redis.ping()  # health check
+        except Exception as exc:
+            self._redis = None
+            print(f"⚠️  Redis unavailable – using memory fallback: {exc}")
+
+    async def close(self) -> None:
+        """Graceful shutdown"""
+        if self._redis:
+            await self._redis.aclose()
 
     # ------------------------------------------------------------------
-    # Sessions
+    # Pipeline progress
     # ------------------------------------------------------------------
 
-    async def create_session(self, user_id: str, metadata: Dict[str, Any]) -> str:
-        """Crée une session unique avec TTL 24h"""
-        session_id = f"{user_id}_{uuid.uuid4().hex[:8]}"
-        data = {
-            "user_id": user_id,
-            "created_at": datetime.utcnow().isoformat(),
-            "metadata": metadata,
+    async def set_pipeline_progress(
+            self, session_id: str, step: str, progress: float
+    ) -> None:
+        key = f"pipeline:{session_id}:{step}"
+        value = {"progress": progress, "updated": datetime.utcnow().isoformat()}
+        await self._set(key, value)
+
+    async def get_pipeline_progress(self, session_id: str) -> Dict[str, Any]:
+        pattern = f"pipeline:{session_id}:*"
+        if self._redis:
+            keys = await self._redis.keys(pattern)
+            data = await asyncio.gather(*[self._get(k) for k in keys])
+            return {k.split(":", 2)[-1]: v for k, v in zip(keys, data) if v}
+        # fallback
+        return {
+            k.split(":", 2)[-1]: v
+            for k, v in self._memory_cache.items()
+            if k.startswith(pattern)
         }
-        if self.redis:
-            await self.redis.setex(f"session:{session_id}", 86400, json.dumps(data))
-        else:
-            self.local_cache[f"session:{session_id}"] = data
-        return session_id
+
+    # ------------------------------------------------------------------
+    # Session state
+    # ------------------------------------------------------------------
+
+    async def set_session(self, session_id: str, data: Dict[str, Any]) -> None:
+        key = f"session:{session_id}"
+        await self._set(key, data)
 
     async def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
-        """Récupère une session"""
-        if self.redis:
-            raw = await self.redis.get(f"session:{session_id}")
-            return json.loads(raw) if raw else None
-        return self.local_cache.get(f"session:{session_id}")
+        key = f"session:{session_id}"
+        return await self._get(key)
 
     # ------------------------------------------------------------------
-    # Progression pipeline
+    # Generic helpers
     # ------------------------------------------------------------------
 
-    async def set_pipeline_progress(self, session_id: str, step: str, progress: float) -> None:
-        """Met à jour la progression d’un pipeline"""
-        key = f"progress:{session_id}"
-        data = {"step": step, "progress": progress, "updated_at": datetime.utcnow().isoformat()}
-        if self.redis:
-            await self.redis.hset(key, step, json.dumps(data))
+    async def _set(self, key: str, value: Any) -> None:
+        if self._redis:
+            await self._redis.setex(key, self._ttl, json.dumps(value))
         else:
-            self.local_cache.setdefault(key, {})[step] = data
+            self._memory_cache[key] = {
+                "data": value,
+                "expires": datetime.utcnow() + timedelta(seconds=self._ttl),
+            }
 
-    async def get_pipeline_progress(self, session_id: str) -> Dict[str, Dict[str, Any]]:
-        """Récupère toute la progression"""
-        key = f"progress:{session_id}"
-        if self.redis:
-            raw = await self.redis.hgetall(key)
-            return {k: json.loads(v) for k, v in raw.items()}
-        return self.local_cache.get(key, {})
-
-    # ------------------------------------------------------------------
-    # Cache temporaire
-    # ------------------------------------------------------------------
-
-    async def cache_set(self, key: str, value: Any, ttl: int = 300) -> None:
-        """Cache court-terme (TTL en secondes)"""
-        if self.redis:
-            await self.redis.setex(f"cache:{key}", ttl, json.dumps(value))
-        else:
-            self.local_cache[f"cache:{key}"] = {"value": value, "expires": datetime.utcnow() + timedelta(seconds=ttl)}
-
-    async def cache_get(self, key: str) -> Optional[Any]:
-        """Récupère du cache"""
-        if self.redis:
-            raw = await self.redis.get(f"cache:{key}")
+    async def _get(self, key: str) -> Optional[Dict[str, Any]]:
+        if self._redis:
+            raw = await self._redis.get(key)
             return json.loads(raw) if raw else None
-        item = self.local_cache.get(f"cache:{key}")
-        if item and item["expires"] > datetime.utcnow():
-            return item["value"]
-        self.local_cache.pop(f"cache:{key}", None)
+
+        # memory fallback
+        item = self._memory_cache.get(key)
+        if item and item.get("expires", datetime.min) > datetime.utcnow():
+            return item["data"]
+        self._memory_cache.pop(key, None)
         return None
 
     # ------------------------------------------------------------------
-    # Nettoyage
+    # Health check
     # ------------------------------------------------------------------
 
-    async def cleanup_expired(self) -> None:
-        """Purge les sessions expirées (si Redis down)"""
-        now = datetime.utcnow()
-        expired = [k for k, v in self.local_cache.items() if isinstance(v, dict) and v.get("expires", now) < now]
-        for k in expired:
-            self.local_cache.pop(k, None)
-
-    async def close(self) -> None:
-        if self.redis:
-            await self.redis.aclose()
+    async def health(self) -> bool:
+        """Return True if Redis is up, False otherwise"""
+        if not self._redis:
+            return False
+        try:
+            return await self._redis.ping()
+        except Exception:
+            return False
 
 
 # ------------------------------------------------------------------
-# Singleton global
+# Singleton helper
 # ------------------------------------------------------------------
 
-_state_manager = None
-_state_lock = asyncio.Lock()
+_state_manager: Optional[StateManager] = None
 
-async def get_state_manager():
+
+async def get_state_manager(redis_url: str = "redis://localhost:6379") -> StateManager:
     global _state_manager
     if _state_manager is None:
-        async with _state_lock:
-            if _state_manager is None:  # Double-check pattern
-                _state_manager = StateManager()
-                await _state_manager.initialize()
+        _state_manager = StateManager(redis_url)
+        await _state_manager.initialize()
     return _state_manager

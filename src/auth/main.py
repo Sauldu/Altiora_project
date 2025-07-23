@@ -15,7 +15,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import sessionmaker
-from src.auth.config import settings  # ✅ centralised settings
+from configs.config_module import get_settings
 
 from src.auth.jwt_handler import jwt_handler
 from src.auth.middleware import get_current_active_user
@@ -26,7 +26,9 @@ from src.auth.user_service import UserService
 # ------------------------------------------------------------------
 # DB setup
 # ------------------------------------------------------------------
-DATABASE_URL = settings.database_url
+settings = get_settings()          # singleton unique
+DATABASE_URL = settings.auth.database_url
+JWT_SECRET_KEY = settings.auth.jwt_secret_key
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base.metadata.create_all(bind=engine)

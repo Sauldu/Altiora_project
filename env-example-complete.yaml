@@ -1,0 +1,70 @@
+# env-example-complete.yaml
+environment: development
+debug: true
+log_level: INFO
+ollama_host: http://localhost:11434
+ollama_timeout: 180
+ollama_keep_alive: 30m
+qwen3_model: qwen3-sfd-analyzer
+starcoder2_model: starcoder2-playwright
+redis_url: redis://localhost:6379
+redis_password:
+redis_db: 0
+redis_ttl_sfd: 86400
+redis_ttl_tests: 43200
+redis_ttl_ocr: 604800
+redis_ttl_model: 3600
+ocr_service_host: localhost
+ocr_service_port: 8001
+ocr_service_timeout: 60
+doctoplus_config: /app/config/config.json
+alm_service_host: localhost
+alm_service_port: 8002
+alm_service_timeout: 120
+alm_api_url: http://alm-server:8080
+alm_api_key:
+excel_service_host: localhost
+excel_service_port: 8003
+excel_service_timeout: 60
+playwright_service_host: localhost
+playwright_service_port: 8004
+playwright_service_timeout: 300
+playwright_workers: 4
+playwright_browser: chromium
+playwright_headed: false
+playwright_screenshot_on_failure: true
+playwright_video_on_failure: true
+jwt_secret_key:
+jwt_algorithm: HS256
+jwt_expiration_minutes: 1440
+rate_limit_enabled: true
+rate_limit_requests: 100
+rate_limit_window_seconds: 60
+allowed_origins:
+  - http://localhost:3000
+  - http://localhost:8080
+data_dir: ./data
+models_dir: ./models
+logs_dir: ./logs
+reports_dir: ./reports
+temp_dir: ./temp
+cache_dir: ./cache
+pipeline_max_parallel_tests: 5
+pipeline_max_parallel_scenarios: 10
+pipeline_fallback_enabled: true
+pipeline_retry_max_attempts: 3
+pipeline_retry_backoff_factor: 2.0
+prometheus_enabled: true
+prometheus_port: 9090
+dash_enabled: true
+dash_port: 8050
+compose_project_name: altiora
+docker_buildkit: 1
+compose_docker_cli_build: 1
+ollama_memory_limit: 12G
+ollama_cpu_limit: 8
+redis_memory_limit: 1G
+ocr_memory_limit: 4G
+mock_ocr_service: false
+mock_alm_service: false
+use_local_models: false

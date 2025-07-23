@@ -1,58 +1,68 @@
-from cryptography.fernet import Fernet
+"""
+Gestionnaire de secrets ultra-sécurisé
+- Charge uniquement depuis variables d’environnement
+- Validation forte au démarrage
+- Zero secret hardcodé
+"""
+
 import os
-from pathlib import Path
-import json
+import secrets
+from typing import Optional
+from cryptography.fernet import Fernet
+from dotenv import load_dotenv
 
-class SecretManager:
-    """Gestionnaire centralisé des secrets."""
-    def __init__(self, secrets_dir: Path):
-        self.key_file = secrets_dir / "master.key"
-        self.secrets_file = secrets_dir / "secrets.enc"
-        self.cipher = self._load_or_create_cipher()
-        self.secrets = self._load_secrets()
+load_dotenv()  # Charge .env si présent
 
-    def _load_or_create_cipher(self):
-        """Charge la clé de chiffrement principale ou en crée une nouvelle."""
-        if self.key_file.exists():
-            key = self.key_file.read_bytes()
-        else:
-            self.key_file.parent.mkdir(parents=True, exist_ok=True)
-            key = Fernet.generate_key()
-            self.key_file.write_bytes(key)
-        return Fernet(key)
 
-    def _load_secrets(self) -> dict:
-        """Charge et déchiffre les secrets depuis le fichier."""
-        if not self.secrets_file.exists():
-            return {}
-        encrypted_data = self.secrets_file.read_bytes()
-        if not encrypted_data:
-            return {}
-        try:
-            decrypted_data = self.cipher.decrypt(encrypted_data)
-            return json.loads(decrypted_data.decode('utf-8'))
-        except Exception:
-            # Gère un fichier corrompu ou invalide
-            return {}
+class SecretsManager:
+    """Singleton sécurisé pour tous les secrets."""
 
-    def get_secret(self, key: str, default: str = None) -> str | None:
-        """
-        Récupère un secret.
-        Priorise les variables d'environnement si elles existent.
-        """
-        env_value = os.environ.get(key.upper())
-        if env_value:
-            return env_value
-        return self.secrets.get(key, default)
+    REQUIRED_SECRETS = {
+        "JWT_SECRET_KEY": "Clé secrète JWT (min 32 caractères)",
+        "OLLAMA_API_KEY": "Clé API Ollama (optionnelle)",
+        "OPENAI_API_KEY": "Clé OpenAI pour modération (optionnelle)",
+        "AZURE_CONTENT_SAFETY_KEY": "Clé Azure Content Safety (optionnelle)",
+        "ENCRYPTION_KEY": "Clé de chiffrement Fernet (32 bytes base64)",
+    }
 
-    def set_secret(self, key: str, value: str):
-        """Définit un secret et le sauvegarde de manière persistante."""
-        self.secrets[key] = value
-        self._save_secrets()
+    @classmethod
+    def get_secret(cls, key: str, required: bool = True) -> str:
+        """Récupère un secret depuis l’environnement."""
+        value = os.getenv(key)
+        if required and not value:
+            raise ValueError(f"Secret manquant: {key} ({cls.REQUIRED_SECRETS[key]})")
+        return value or ""
 
-    def _save_secrets(self):
-        """Chiffre et sauvegarde l'ensemble des secrets."""
-        data = json.dumps(self.secrets).encode('utf-8')
-        encrypted_data = self.cipher.encrypt(data)
-        self.secrets_file.parent.mkdir(parents=True, exist_ok=True)
-        self.secrets_file.write_bytes(encrypted_data)
+    @classmethod
+    def validate_secrets(cls) -> None:
+        """Validation stricte au démarrage de l’application."""
+        errors = []
+
+        # Validation JWT
+        jwt_key = cls.get_secret("JWT_SECRET_KEY")
+        if jwt_key and len(jwt_key) < 32:
+            errors.append("JWT_SECRET_KEY doit faire au moins 32 caractères")
+
+        # Validation format Fernet
+        encryption_key = cls.get_secret("ENCRYPTION_KEY")
+        if encryption_key:
+            try:
+                Fernet(encryption_key.encode())
+            except Exception:
+                errors.append("ENCRYPTION_KEY invalide (doit être 32 bytes base64)")
+
+        if errors:
+            raise RuntimeError("\n".join(errors))
+
+    @classmethod
+    def generate_missing_secrets(cls) -> None:
+        """Génère automatiquement les secrets manquants."""
+        secrets_to_generate = {
+            "JWT_SECRET_KEY": secrets.token_urlsafe(64),
+            "ENCRYPTION_KEY": Fernet.generate_key().decode()
+        }
+
+        for key, value in secrets_to_generate.items():
+            if not os.getenv(key):
+                print(f"⚠️  Secret généré automatiquement : {key}")
+                print(f"   Ajoutez dans votre .env : {key}={value}")

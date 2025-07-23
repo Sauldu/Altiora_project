@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Altiora - Interface Conversationnelle Avancée</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        :root {
+            /* Light Theme Colors */
+            --bg-primary: #f8f9fa;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #e9ecef;
+            --text-primary: #212529;
+            --text-secondary: #6c757d;
+            --border-color: #dee2e6;
+            --primary: #4361ee;
+            --primary-dark: #3a56d4;
+            --secondary: #7209b7;
+            --success: #4cc9f0;
+            --warning: #f72585;
+            --shadow: 0 4px 12px rgba(0,0,0,0.08);
+            
+            /* Dark Theme Colors */
+            --dark-bg-primary: #121212;
+            --dark-bg-secondary: #1e1e1e;
+            --dark-bg-tertiary: #2d2d2d;
+            --dark-text-primary: #f8f9fa;
+            --dark-text-secondary: #adb5bd;
+            --dark-border-color: #495057;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        body.dark-theme {
+            background-color: var(--dark-bg-primary);
+            color: var(--dark-text-primary);
+        }
+
+        .header {
+            background: linear-gradient(120deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 1rem 1.5rem;
+            box-shadow: var(--shadow);
+            z-index: 10;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .logo i {
+            font-size: 1.75rem;
+        }
+
+        .theme-controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .theme-toggle {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .theme-toggle:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .features {
+            display: flex;
+            gap: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .feature-tag {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            backdrop-filter: blur(4px);
+        }
+
+        .chat-container {
+            flex: 1;
+            display: flex;
+            max-width: 1200px;
+            width: 100%;
+            margin: 1.5rem auto;
+            gap: 1.5rem;
+            padding: 0 1.5rem;
+        }
+
+        .sidebar {
+            width: 280px;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            transition: background-color 0.3s, box-shadow 0.3s;
+        }
+
+        body.dark-theme .sidebar {
+            background: var(--dark-bg-secondary);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .sidebar-section {
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1.5rem;
+        }
+
+        body.dark-theme .sidebar-section {
+            border-bottom: 1px solid var(--dark-border-color);
+        }
+
+        .sidebar-section:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .sidebar h3 {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        body.dark-theme .sidebar h3 {
+            color: var(--dark-text-secondary);
+        }
+
+        .context-item {
+            padding: 0.75rem;
+            border-radius: 8px;
+            background: var(--bg-tertiary);
+            margin-bottom: 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        body.dark-theme .context-item {
+            background: var(--dark-bg-tertiary);
+        }
+
+        .context-key {
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .suggestions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .suggestion-chip {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 999px;
+            padding: 0.4rem 0.8rem;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        body.dark-theme .suggestion-chip {
+            background: var(--dark-bg-tertiary);
+            border: 1px solid var(--dark-border-color);
+        }
+
+        .suggestion-chip:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .main-chat {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            transition: background-color 0.3s, box-shadow 0.3s;
+        }
+
+        body.dark-theme .main-chat {
+            background: var(--dark-bg-secondary);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .chat-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        body.dark-theme .chat-header {
+            border-bottom: 1px solid var(--dark-border-color);
+        }
+
+        .chat-title {
+            font-weight: 600;
+        }
+
+        .status {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        body.dark-theme .status {
+            color: var(--dark-text-secondary);
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--success);
+        }
+
+        .messages-container {
+            flex: 1;
+            padding: 1.5rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 1rem 1.25rem;
+            border-radius: 18px;
+            line-height: 1.5;
+            position: relative;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .user-message {
+            align-self: flex-end;
+            background: var(--primary);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .bot-message {
+            align-self: flex-start;
+            background: var(--bg-tertiary);
+            border-bottom-left-radius: 4px;
+        }
+
+        body.dark-theme .bot-message {
+            background: var(--dark-bg-tertiary);
+        }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .bot-message .message-header {
+            color: var(--primary-dark);
+        }
+
+        body.dark-theme .bot-message .message-header {
+            color: #6a9eff; /* Lighter blue for dark theme */
+        }
+
+        .message-content p {
+            margin: 0.5rem 0;
+        }
+
+        .message-context {
+            margin-top: 0.75rem;
+            padding: 0.75rem;
+            background: rgba(67, 97, 238, 0.05);
+            border-radius: 8px;
+            font-size: 0.85rem;
+        }
+
+        body.dark-theme .message-context {
+            background: rgba(67, 97, 238, 0.15);
+        }
+
+        .message-context h4 {
+            margin-bottom: 0.5rem;
+            color: var(--primary);
+        }
+
+        .attachments {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+        }
+
+        .attachment {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            background: rgba(0, 0, 0, 0.03);
+            border-radius: 6px;
+            font-size: 0.8rem;
+        }
+
+        body.dark-theme .attachment {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .input-area {
+            padding: 1.25rem;
+            border-top: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+
+        body.dark-theme .input-area {
+            border-top: 1px solid var(--dark-border-color);
+            background: var(--dark-bg-secondary);
+        }
+
+        .input-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .message-input-row {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .message-input {
+            flex: 1;
+            padding: 0.9rem 1.25rem;
+            border: 1px solid var(--border-color);
+            border-radius: 999px;
+            font-size: 1rem;
+            transition: border-color 0.2s, background-color 0.3s, color 0.3s;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        body.dark-theme .message-input {
+            border: 1px solid var(--dark-border-color);
+            background: var(--dark-bg-secondary);
+            color: var(--dark-text-primary);
+        }
+
+        .message-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+        }
+
+        .send-button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+            align-self: flex-end;
+        }
+
+        .send-button:hover {
+            background: var(--primary-dark);
+        }
+
+        .attachment-button {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s, border-color 0.2s;
+            align-self: flex-end;
+        }
+
+        body.dark-theme .attachment-button {
+            background: var(--dark-bg-tertiary);
+            border: 1px solid var(--dark-border-color);
+        }
+
+        .attachment-button:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .suggestions-bar {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .file-preview {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            font-size: 0.85rem;
+            max-width: 100%;
+            overflow: hidden;
+        }
+
+        body.dark-theme .file-preview {
+            background: var(--dark-bg-tertiary);
+        }
+
+        .file-preview-name {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .remove-file {
+            cursor: pointer;
+            color: var(--warning);
+        }
+
+        .storage-warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+
+        body.dark-theme .storage-warning {
+            background-color: #343a40;
+            border-color: #495057;
+            color: #e9ecef;
+        }
+
+        .workflow-steps {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px dashed var(--border-color);
+        }
+
+        body.dark-theme .workflow-steps {
+            border-top: 1px dashed var(--dark-border-color);
+        }
+
+        .workflow-step {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            background: var(--bg-tertiary);
+            border-radius: 999px;
+            padding: 0.3rem 0.7rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        body.dark-theme .workflow-step {
+            background: var(--dark-bg-tertiary);
+        }
+
+        .workflow-step:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .step-number {
+            background: var(--primary);
+            color: white;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+        }
+
+        .workflow-step:hover .step-number {
+            background: white;
+            color: var(--primary);
+        }
+
+        @media (max-width: 768px) {
+            .chat-container {
+                flex-direction: column;
+                margin: 1rem;
+                padding: 0;
+            }
+            
+            .sidebar {
+                width: 100%;
+            }
+            
+            .message {
+                max-width: 90%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <i class="fas fa-robot"></i>
+                <span>Altiora</span>
+            </div>
+            <div class="theme-controls">
+                <button class="theme-toggle" id="themeToggle" title="Basculer le mode sombre">
+                    <i class="fas fa-moon"></i>
+                </button>
+                <div class="features">
+                    <div class="feature-tag">Mémoire Contextuelle</div>
+                    <div class="feature-tag">Suggestions Intelligentes</div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="chat-container">
+        <aside class="sidebar">
+            <div class="storage-warning">
+                <i class="fas fa-exclamation-triangle"></i>
+                <div>
+                    <strong>Limitation d'affichage :</strong> Le thème sélectionné (sombre/clair) ne sera pas sauvegardé lors du rechargement de la page dans cet environnement.
+                </div>
+            </div>
+            <div class="sidebar-section">
+                <h3><i class="fas fa-brain"></i> Contexte Actif</h3>
+                <div class="context-item">
+                    <span class="context-key">Projet:</span> Migration système de paiement
+                </div>
+                <div class="context-item">
+                    <span class="context-key">Technologie:</span> Node.js, PostgreSQL
+                </div>
+                <div class="context-item">
+                    <span class="context-key">Dernière SFD:</span> Authentification utilisateur
+                </div>
+                <div class="context-item">
+                    <span class="context-key">Tests Générés:</span> 12 cas de test Playwright
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3><i class="fas fa-history"></i> Historique Récent</h3>
+                <div class="context-item">
+                    <span class="context-key">Action:</span> Analyse SFD "Authentification"
+                </div>
+                <div class="context-item">
+                    <span class="context-key">Action:</span> Génération tests Playwright
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3><i class="fas fa-lightbulb"></i> Suggestions</h3>
+                <div class="suggestions">
+                    <div class="suggestion-chip">Correction textuelle</div>
+                    <div class="suggestion-chip">Analyse des SFD</div>
+                    <div class="suggestion-chip">Créer une matrice de test</div>
+                    <div class="suggestion-chip">Générer les tests Playwright</div>
+                    <div class="suggestion-chip">Exécuter les tests</div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-chat">
+            <div class="chat-header">
+                <div class="chat-title">Assistant QA IA</div>
+                <div class="status">
+                    <div class="status-indicator"></div>
+                    <span>En ligne - Mémoire contextuelle active</span>
+                </div>
+            </div>
+
+            <div class="messages-container" id="messagesContainer">
+                <div class="message bot-message">
+                    <div class="message-header">
+                        <i class="fas fa-robot"></i>
+                        <span>Altiora</span>
+                    </div>
+                    <div class="message-content">
+                        <p>Bonjour ! Je suis Altiora, votre assistant QA IA. Je me souviens de notre contexte : vous travaillez sur une migration de système de paiement avec Node.js.</p>
+                        <p>Comment puis-je vous aider aujourd'hui ?</p>
+                    </div>
+                </div>
+
+                <div class="message user-message">
+                    <div class="message-header">
+                        <i class="fas fa-user"></i>
+                        <span>Vous</span>
+                    </div>
+                    <div class="message-content">
+                        <p>J'ai besoin d'analyser la spécification fonctionnelle détaillée pour le module d'authentification.</p>
+                        <div class="attachments">
+                            <div class="attachment">
+                                <i class="fas fa-file-pdf"></i>
+                                <span>SFD_authentification_v2.pdf</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="message bot-message">
+                    <div class="message-header">
+                        <i class="fas fa-robot"></i>
+                        <span>Altiora</span>
+                    </div>
+                    <div class="message-content">
+                        <p>Merci pour le fichier ! J'ai analysé votre SFD "Authentification". Voici ce que j'ai identifié :</p>
+                        <p><strong>5 scénarios de test potentiels :</strong></p>
+                        <ol>
+                            <li>Connexion utilisateur avec identifiants valides [Critique]</li>
+                            <li>Tentative de connexion avec mot de passe incorrect [Haute]</li>
+                            <li>Réinitialisation du mot de passe via email [Moyenne]</li>
+                            <li>Verrouillage du compte après 3 tentatives [Moyenne]</li>
+                            <li>Déconnexion sécurisée [Normale]</li>
+                        </ol>
+                        <p>Souhaitez-vous que je génère les tests Playwright correspondants ?</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="input-area">
+                <form class="input-form" id="messageForm">
+                    <div class="message-input-row">
+                        <input type="text" class="message-input" id="messageInput" placeholder="Tapez votre message..." autocomplete="off">
+                        <input type="file" id="fileInput" class="file-input" accept=".pdf,.doc,.docx,.txt,.xlsx">
+                        <label for="fileInput" class="attachment-button" title="Joindre un fichier">
+                            <i class="fas fa-paperclip"></i>
+                        </label>
+                        <button type="submit" class="send-button">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                    <div id="filePreviewContainer"></div>
+                    <!-- Suggestions rapides retirées ici -->
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const body = document.body;
+            const themeToggle = document.getElementById('themeToggle');
+            const themeIcon = themeToggle.querySelector('i');
+            const messagesContainer = document.getElementById('messagesContainer');
+            const messageForm = document.getElementById('messageForm');
+            const messageInput = document.getElementById('messageInput');
+            const fileInput = document.getElementById('fileInput');
+            const filePreviewContainer = document.getElementById('filePreviewContainer');
+            
+            // Initialiser le thème clair par défaut
+            // Note: Pas de persistance en localStorage à cause du sandbox
+            let isDarkTheme = false;
+            
+            // Basculer le thème
+            themeToggle.addEventListener('click', function() {
+                isDarkTheme = !isDarkTheme;
+                body.classList.toggle('dark-theme', isDarkTheme);
+                
+                if (isDarkTheme) {
+                    themeIcon.classList.remove('fa-moon');
+                    themeIcon.classList.add('fa-sun');
+                } else {
+                    themeIcon.classList.remove('fa-sun');
+                    themeIcon.classList.add('fa-moon');
+                }
+            });
+            
+            // Fonction pour ajouter un message
+            function addMessage(sender, text, attachments = []) {
+                const messageDiv = document.createElement('div');
+                messageDiv.classList.add('message');
+                messageDiv.classList.add(sender === 'user' ? 'user-message' : 'bot-message');
+                
+                const messageHeader = document.createElement('div');
+                messageHeader.classList.add('message-header');
+                messageHeader.innerHTML = `
+                    <i class="fas ${sender === 'user' ? 'fa-user' : 'fa-robot'}"></i>
+                    <span>${sender === 'user' ? 'Vous' : 'Altiora'}</span>
+                `;
+                
+                const messageContent = document.createElement('div');
+                messageContent.classList.add('message-content');
+                messageContent.innerHTML = `<p>${text}</p>`;
+                
+                messageDiv.appendChild(messageHeader);
+                messageDiv.appendChild(messageContent);
+                
+                // Ajouter les pièces jointes si présentes
+                if (attachments.length > 0) {
+                    const attachmentsDiv = document.createElement('div');
+                    attachmentsDiv.classList.add('attachments');
+                    
+                    attachments.forEach(file => {
+                        const attachmentDiv = document.createElement('div');
+                        attachmentDiv.classList.add('attachment');
+                        attachmentDiv.innerHTML = `
+                            <i class="fas ${getFileIcon(file.type)}"></i>
+                            <span>${file.name}</span>
+                        `;
+                        attachmentsDiv.appendChild(attachmentDiv);
+                    });
+                    
+                    messageContent.appendChild(attachmentsDiv);
+                }
+                
+                messagesContainer.appendChild(messageDiv);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+            
+            // Déterminer l'icône de fichier
+            function getFileIcon(fileType) {
+                if (fileType.includes('pdf')) return 'fa-file-pdf';
+                if (fileType.includes('word') || fileType.includes('doc')) return 'fa-file-word';
+                if (fileType.includes('excel') || fileType.includes('sheet')) return 'fa-file-excel';
+                if (fileType.includes('image')) return 'fa-file-image';
+                if (fileType.includes('text') || fileType.includes('txt')) return 'fa-file-alt';
+                return 'fa-file';
+            }
+            
+            // Gestion de l'envoi du message
+            messageForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const message = messageInput.value.trim();
+                const files = Array.from(fileInput.files);
+                
+                if (message || files.length > 0) {
+                    addMessage('user', message || "Fichier joint", files);
+                    messageInput.value = '';
+                    fileInput.value = '';
+                    filePreviewContainer.innerHTML = '';
+                    
+                    // Simulation de réponse de l'assistant
+                    setTimeout(() => {
+                        let response = "";
+                        if (message.toLowerCase().includes('génère') && message.toLowerCase().includes('test')) {
+                            response = "J'ai généré 5 tests Playwright pour le module d'authentification. Vous les trouverez dans le dossier /tests/playwright/auth/. Souhaitez-vous que je les exécute maintenant ?";
+                        } else if (message.toLowerCase().includes('matrice')) {
+                            response = "Voici la matrice de traçabilité entre les exigences de la SFD et les cas de test que j'ai générés. Elle est disponible au format Excel dans /docs/matrice_authentification.xlsx";
+                        } else if (message.toLowerCase().includes('exécute')) {
+                            response = "J'exécute les tests Playwright pour le module d'authentification...<br><br>✅ Test 1: Connexion réussie - PASS<br>✅ Test 2: Mot de passe incorrect - PASS<br>⚠️ Test 3: Réinitialisation mot de passe - FAIL (Timeout)<br>✅ Test 4: Verrouillage compte - PASS<br>✅ Test 5: Déconnexion - PASS<br><br>Un rapport détaillé est disponible dans /reports/auth_test_report.html";
+                        } else {
+                            response = "J'ai bien noté votre demande. En utilisant le contexte de notre projet de migration de système de paiement, je peux vous aider à analyser des SFD, générer des tests, créer des matrices ou exécuter des suites de tests. Que souhaitez-vous faire maintenant ?";
+                        }
+                        
+                        addMessage('bot', response);
+                    }, 1000);
+                }
+            });
+            
+            // Gestion des suggestions
+            document.querySelectorAll('.suggestion-chip').forEach(element => {
+                element.addEventListener('click', function() {
+                    const action = this.getAttribute('data-action') || this.textContent;
+                    messageInput.value = action;
+                    messageInput.focus();
+                });
+            });
+            
+            // Gestion de l'aperçu des fichiers
+            fileInput.addEventListener('change', function() {
+                filePreviewContainer.innerHTML = '';
+                const files = Array.from(fileInput.files);
+                
+                if (files.length > 0) {
+                    const previewDiv = document.createElement('div');
+                    previewDiv.classList.add('file-preview');
+                    
+                    const fileIcon = document.createElement('i');
+                    fileIcon.classList.add('fas', getFileIcon(files[0].type));
+                    
+                    const fileNameSpan = document.createElement('span');
+                    fileNameSpan.classList.add('file-preview-name');
+                    fileNameSpan.textContent = files[0].name;
+                    
+                    const removeIcon = document.createElement('i');
+                    removeIcon.classList.add('fas', 'fa-times', 'remove-file');
+                    removeIcon.addEventListener('click', function() {
+                        fileInput.value = '';
+                        filePreviewContainer.innerHTML = '';
+                    });
+                    
+                    previewDiv.appendChild(fileIcon);
+                    previewDiv.appendChild(fileNameSpan);
+                    previewDiv.appendChild(removeIcon);
+                    
+                    filePreviewContainer.appendChild(previewDiv);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

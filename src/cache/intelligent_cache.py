@@ -1,41 +1,45 @@
 # src/cache/intelligent_cache.py
-import hashlib
+# src/cache/intelligent_cache.py
 import pickle
-from typing import Optional, Any, Callable
-from datetime import datetime, timedelta
+from datetime import timedelta
+from typing import Any, Callable
 
 
 class IntelligentCache:
-    """Cache avec stratégies intelligentes"""
-
-    def __init__(self, redis_client, default_ttl: int = 3600):
+    def __init__(self, redis_client):
         self.redis = redis_client
-        self.default_ttl = default_ttl
-        self.stats = CacheStats()
+        self.stats = {"hits": 0, "misses": 0}
 
     async def get_or_compute(
             self,
             key: str,
             compute_fn: Callable,
-            ttl: Optional[int] = None,
-            cache_condition: Optional[Callable] = None
+            ttl: timedelta = timedelta(hours=1),
+            compression: bool = True
     ) -> Any:
-        """Récupérer du cache ou calculer"""
-        # Vérifier le cache
-        cached = await self.get(key)
-        if cached is not None:
-            self.stats.hit()
-            return cached
+        # Tentative de récupération depuis le cache
+        cached = await self.redis.get(key)
 
-        # Calculer la valeur
-        self.stats.miss()
-        value = await compute_fn()
+        if cached:
+            self.stats["hits"] += 1
+            data = pickle.loads(cached)
+            if compression:
+                import zlib
+                data = pickle.loads(zlib.decompress(data))
+            return data
 
-        # Vérifier si on doit mettre en cache
-        if cache_condition is None or cache_condition(value):
-            await self.set(key, value, ttl)
+        # Calcul et mise en cache
+        self.stats["misses"] += 1
+        result = await compute_fn()
 
-        return value
+        # Sérialisation avec compression optionnelle
+        data = pickle.dumps(result)
+        if compression and len(data) > 1024:  # Compresser si > 1KB
+            import zlib
+            data = zlib.compress(data)
+
+        await self.redis.setex(key, int(ttl.total_seconds()), data)
+        return result
 
     async def invalidate_pattern(self, pattern: str):
         """Invalider par pattern"""

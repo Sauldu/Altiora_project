@@ -17,7 +17,7 @@ from typing import Any, Dict, Optional
 
 import aiohttp
 
-from src.utils.circuit_breaker import CircuitBreaker
+from src.utils.retry_handler import retry_handler
 from src.core.model_memory_manager import ModelMemoryManager
 from configs.config_module import ModelConfig
 
@@ -149,6 +149,10 @@ class StarCoder2OllamaInterface:
             return result
 
         return await self.circuit_breaker.call(_do)
+
+    @retry_handler.circuit_breaker
+    async def critical_operation():
+        await some_function()
 
     # ------------------------------------------------------------------
     # Code extraction & validation

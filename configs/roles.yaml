@@ -1,0 +1,18 @@
+# configs/roles.yaml
+roles:
+  - name: Admin
+    permissions:
+      - resource: all
+        action: all
+  - name: User
+    permissions:
+      - resource: report
+        action: read
+      - resource: test
+        action: execute
+  - name: Auditor
+    permissions:
+      - resource: log
+        action: read
+      - resource: report
+        action: read

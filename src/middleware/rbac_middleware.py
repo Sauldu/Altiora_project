@@ -11,7 +11,7 @@ from src.rbac.models import User
 # ------------------------------------------------------------------
 # Global RBAC instance
 # ------------------------------------------------------------------
-rbac_manager = RBACManager(Path("configs/roles.json"))
+rbac_manager = RBACManager(Path("configs/roles.yaml"))
 
 
 async def verify_permission(

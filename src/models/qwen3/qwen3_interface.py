@@ -20,7 +20,7 @@ import aiohttp
 # Import pour l'évolution de la personnalité
 from psychodesign.personality_evolution import PersonalityEvolution
 from src.models.sfd_models import SFDAnalysisRequest
-from src.utils.circuit_breaker import CircuitBreaker
+from src.utils.retry_handler import retry_handler
 
 
 
@@ -213,6 +213,9 @@ class Qwen3OllamaInterface:
         except Exception as e:
             logger.error(f"Erreur analyse SFD (via circuit breaker): {e}")
             raise
+    @retry_handler.circuit_breaker
+    async def critical_operation():
+        await some_function()
 
     @staticmethod
     def _generate_cache_key(content: str, extraction_type: str) -> str:

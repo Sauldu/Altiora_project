@@ -1,6 +1,6 @@
-"""
-Package Core – Gestion d’état et workflows
-"""
+# src/core/__init__.py
+from .container import Container
+from .fallback_system import FallbackSystem
+from .model_memory_manager import ModelMemoryManager
 
-from .state_manager import get_state_manager, StateManager
-from .workflow_engine import WorkflowEngine
+__all__ = ['Container', 'FallbackSystem', 'ModelMemoryManager']

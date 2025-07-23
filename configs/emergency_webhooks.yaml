@@ -1,0 +1,8 @@
+# configs/emergency_webhooks.yaml
+webhooks:
+  - name: Slack
+    url: https://slack.com/api/chat.postMessage
+    channel: #emergency
+  - name: Teams
+    url: https://outlook.office.com/webhook/
+    channel: @team

@@ -1,12 +1,7 @@
-from src.config.settings import get_settings   # en haut du fichier
+# src/__init__.py
+from .orchestrator import Orchestrator
+from .core.container import Container
+from .auth.main import app as auth_app
+from .dashboard.app import app as dashboard_app
 
-class Orchestrator:
-    def __init__(
-        self,
-        starcoder,
-        redis_client,
-        config,
-        model_registry,
-    ) -> None:
-        ...
-        self.config_path = get_settings().base_dir / "configs" / "services.yaml"
+__all__ = ['Orchestrator', 'Container', 'auth_app', 'dashboard_app']
