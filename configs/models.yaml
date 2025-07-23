@@ -1,0 +1,26 @@
+models:
+  qwen3:
+    base_model: "Qwen/Qwen3-32B"
+    quantization: "Q4_K_M"
+    ollama_tag: "qwen3:32b-q4_K_M"
+    fine_tuning:
+      method: "qlora"
+      r: 32              # Optimisé pour 32GB RAM
+      alpha: 64          # Ratio 2:1
+      target_modules: ["q_proj", "v_proj", "k_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+      dropout: 0.05
+      batch_size: 2      # Augmenté pour 32GB
+      max_seq_length: 4096
+
+  starcoder2:
+    base_model: "bigcode/starcoder2-15b"
+    quantization: "Q8_0"
+    ollama_tag: "starcoder2:15b-q8_0"
+    fine_tuning:
+      method: "qlora"
+      r: 24              # Optimisé pour 32GB RAM
+      alpha: 48          # Ratio 2:1
+      target_modules: ["q_proj", "v_proj", "k_proj", "o_proj", "c_attn", "c_proj"]
+      dropout: 0.05
+      batch_size: 2      # Possible avec 32GB
+      max_seq_length: 8192  # StarCoder2 supporte jusqu'à 16k

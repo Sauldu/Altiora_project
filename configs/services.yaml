@@ -1,0 +1,164 @@
+# Configuration des services pour le projet Qwen3-StarCoder2
+# Architecture microservices avec Ollama
+
+# Configuration Ollama
+ollama:
+  host: "localhost"
+  port: 11434
+  # Timeout augmenté pour StarCoder2
+  timeout: 180
+  # Mode API préféré pour StarCoder2
+  preferred_api: "chat"  # ou "generate"
+  
+# Configuration des modèles IA
+models:
+  qwen3:
+    name: "qwen3-sfd-analyzer"
+    base_model: "qwen3:32b-q4_K_M"
+    role: "SFD analysis and test scenario extraction"
+    api_mode: "generate"  # Qwen3 fonctionne mieux avec generate
+    options:
+      temperature: 0.7
+      top_p: 0.9
+      top_k: 40
+      repeat_penalty: 1.1
+      num_ctx: 32768
+      num_predict: 4096
+      
+  starcoder2:
+    name: "starcoder2-playwright"
+    base_model: "starcoder2:15b-q8_0"
+    role: "Playwright test code generation"
+    api_mode: "chat"  # StarCoder2 fonctionne mieux avec chat
+    options:
+      temperature: 0.2
+      top_p: 0.95
+      top_k: 10
+      repeat_penalty: 1.1
+      num_ctx: 8192
+      num_predict: 4096
+      seed: 42
+      stop:
+        - "```"
+        - "\n\n\n"
+        - "</code>"
+
+# Services externes
+services:
+  ocr:
+    name: "doctoplus-ocr"
+    type: "ocr"
+    host: "localhost"
+    port: 8001
+    timeout: 60
+    health_check_path: "/health"
+    max_retries: 3
+    
+  alm:
+    name: "alm-connector"
+    type: "alm"
+    host: "localhost"
+    port: 8002
+    timeout: 120
+    health_check_path: "/health"
+    max_retries: 2
+    
+  excel:
+    name: "excel-processor"
+    type: "excel"
+    host: "localhost"
+    port: 8003
+    timeout: 60
+    health_check_path: "/health"
+    max_retries: 3
+    
+  playwright:
+    name: "playwright-runner"
+    type: "playwright"
+    host: "localhost"
+    port: 8004
+    timeout: 300
+    health_check_path: "/health"
+    max_retries: 2
+    # Configuration spécifique Playwright
+    config:
+      browsers: ["chromium", "firefox"]
+      headed: false
+      slowMo: 0
+      screenshot: "only-on-failure"
+      video: "retain-on-failure"
+      trace: "on-first-retry"
+
+# Configuration Redis pour le cache
+redis:
+  host: "localhost"
+  port: 6379
+  db: 0
+  password: null  # Définir si Redis a un mot de passe
+  # TTL en secondes pour différents types de cache
+  ttl:
+    sfd_analysis: 86400      # 24 heures
+    generated_tests: 43200   # 12 heures
+    ocr_results: 604800      # 7 jours
+    model_responses: 3600    # 1 heure
+
+# Configuration du pipeline
+pipeline:
+  # Parallélisation
+  max_parallel_tests: 5
+  max_parallel_scenarios: 10
+  
+  # Timeouts globaux (secondes)
+  timeouts:
+    sfd_extraction: 300
+    scenario_analysis: 600
+    test_generation: 180
+    test_execution: 900
+    
+  # Retry policy
+  retry:
+    max_attempts: 3
+    backoff_factor: 2  # Délai exponentiel
+    max_delay: 30
+    
+  # Modes de fallback
+  fallback:
+    enabled: true
+    use_templates: true
+    template_quality: "basic"  # basic, intermediate, advanced
+
+# Logging et monitoring
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  format: "json"  # json ou text
+  file: "logs/orchestrator.log"
+  max_size_mb: 100
+  backup_count: 5
+  
+monitoring:
+  prometheus:
+    enabled: false
+    port: 9090
+  metrics:
+    - "response_time"
+    - "token_count"
+    - "cache_hit_rate"
+    - "error_rate"
+
+# Environnements
+environments:
+  development:
+    debug: true
+    cache_enabled: false
+    mock_services: true
+    
+  staging:
+    debug: false
+    cache_enabled: true
+    mock_services: false
+    
+  production:
+    debug: false
+    cache_enabled: true
+    mock_services: false
+    high_availability: true

@@ -1,0 +1,26 @@
+# configs/error_handling.yaml
+error_handling:
+  retry_policies:
+    default:
+      max_attempts: 3
+      backoff_factor: 2.0
+      max_delay: 30
+
+    ai_services:
+      max_attempts: 5
+      backoff_factor: 1.5
+      max_delay: 60
+
+    validation:
+      max_attempts: 2
+      max_delay: 10
+
+  circuit_breaker:
+    failure_threshold: 5
+    timeout: 60
+    services: ["ocr", "alm", "excel", "playwright"]
+
+  monitoring:
+    log_errors: true
+    alert_on_critical: true
+    metrics_interval: 300

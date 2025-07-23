@@ -1,0 +1,21 @@
+models:
+  analysis:
+    name: "qwen3-sfd-analyzer"
+    base_model: "qwen3:32b-q4_K_M"
+    role: "SFD analysis and understanding"
+    timeout: 120
+    max_tokens: 4096
+    temperature: 0.7
+    
+  code_generation:
+    name: "starcoder2-playwright"
+    base_model: "starcoder2:15b-q8_0"
+    role: "Playwright test generation"
+    timeout: 60
+    max_tokens: 2048
+    temperature: 0.3
+    
+ollama:
+  host: "localhost"
+  port: 11434
+  keep_alive: "30m"

@@ -1,0 +1,26 @@
+# tests/performance/config.yaml
+performance_tests:
+  cpu_limits:
+    max_percent: 85
+    max_temperature: 80
+    max_memory_gb: 25
+
+  thresholds:
+    response_time_ms: 30000
+    throughput_req_sec: 0.5
+    error_rate_percent: 5
+    memory_efficiency: 0.8
+
+  test_scenarios:
+    - name: "light_load"
+      concurrent_requests: 5
+      duration_seconds: 60
+    - name: "medium_load"
+      concurrent_requests: 15
+      duration_seconds: 120
+    - name: "heavy_load"
+      concurrent_requests: 30
+      duration_seconds: 300
+    - name: "stress_test"
+      concurrent_requests: 50
+      duration_seconds: 600

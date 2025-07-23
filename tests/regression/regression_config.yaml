@@ -1,0 +1,39 @@
+# Configuration des tests de régression Altiora
+thresholds:
+  max_time_increase: 1.2      # 20% maximum time increase
+  min_scenarios: 1            # Minimum scenarios to extract
+  min_tests_generated: 1      # Minimum tests to generate
+  code_similarity: 0.8        # 80% minimum code similarity
+  max_memory_increase: 1.5    # 50% memory increase allowed
+
+models:
+  qwen3:
+    model_name: "qwen3-sfd-analyzer"
+    timeout: 120
+    test_cases:
+      - scenario_extraction
+      - test_matrix_generation
+      - priority_detection
+  starcoder2:
+    model_name: "starcoder2-playwright"
+    timeout: 180
+    test_cases:
+      - code_generation
+      - syntax_validity
+      - playwright_compliance
+
+services:
+  health_check: true
+  response_time: 30
+  endpoints:
+    - ocr
+    - alm
+    - excel
+    - playwright
+
+performance:
+  measure_memory: true
+  measure_cpu: true
+  iterations: 3
+
+update_baselines: false  # Set to true to update reference files

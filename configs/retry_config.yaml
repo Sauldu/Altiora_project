@@ -1,0 +1,19 @@
+# configs/retry_config.yaml
+retry_policies:
+  network:
+    max_attempts: 3
+    backoff_factor: 2.0
+    max_delay: 30
+    exceptions: [aiohttp.ClientError, TimeoutError]
+
+  ai_services:
+    max_attempts: 5
+    backoff_factor: 1.5
+    max_delay: 60
+    exceptions: [OllamaError, AIProcessingError]
+
+  validation:
+    max_attempts: 2
+    backoff_factor: 1.0
+    max_delay: 10
+    exceptions: [ValidationError]

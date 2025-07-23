@@ -1,0 +1,37 @@
+{
+  "model": "qwen3:32b-q4_K_M-instruct-q4_K_M",
+  "model_path": "./models/qwen3-gguf",
+  "# Configuration CPU optimis\u00e9e": null,
+  "options": {
+    "num_thread": 12,
+    "num_gpu": 0,
+    "main_gpu": 0,
+    "low_vram": false,
+    "use_mmap": true,
+    "use_mlock": false,
+    "num_batch": 512,
+    "num_keep": 16,
+    "seed": -1,
+    "f16_kv": false,
+    "logits_all": false,
+    "vocab_only": false
+  },
+  "# Param\u00e8tres de g\u00e9n\u00e9ration": null,
+  "generation": {
+    "num_predict": 2048,
+    "top_k": 40,
+    "top_p": 0.9,
+    "temperature": 0.7,
+    "repeat_penalty": 1.1,
+    "repeat_last_n": 64,
+    "stop": [
+      "<|im_end|>",
+      "<|im_start|>",
+      "<|endoftext|>"
+    ]
+  },
+  "# Template de prompt Qwen3": null,
+  "template": "<|im_start|>system\n{system}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n",
+  "# Syst\u00e8me par d\u00e9faut": null,
+  "system_prompt": "Tu es un expert en automatisation de tests. Tu g\u00e9n\u00e8res du code de test propre, maintenable et bien document\u00e9."
+}

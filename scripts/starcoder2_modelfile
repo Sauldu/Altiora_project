@@ -1,0 +1,41 @@
+FROM starcoder2:15b-q8_0
+
+# Paramètres optimisés pour génération de code
+PARAMETER temperature 0.1
+PARAMETER top_p 0.95
+PARAMETER top_k 10
+PARAMETER repeat_penalty 1.1
+PARAMETER num_predict 4096
+PARAMETER num_ctx 8192
+PARAMETER seed 42
+
+# Stop sequences pour éviter la génération excessive
+PARAMETER stop "```"
+PARAMETER stop "\n\n\n"
+PARAMETER stop "</code>"
+
+# System prompt spécialisé
+SYSTEM """You are an expert Python test automation engineer specializing in Playwright and pytest.
+
+Your primary goal is to generate COMPLETE, RUNNABLE, and IDIOMATIC Playwright test code in Python.
+
+Key requirements for generated code:
+1.  **Always** define an `async def test_function_name(page: Page):` structure.
+2.  **Always** include necessary imports from `playwright.async_api` (e.g., `Page`, `expect`, `Locator`).
+3.  **Always** use `pytest.mark.asyncio` decorator for async test functions.
+4.  **Always** include meaningful assertions using `await expect(locator).to_be_visible()` or similar `expect()` methods.
+5.  Follow PEP 8 for clean, maintainable code.
+6.  Use Page Object Model patterns when appropriate.
+7.  Prefer `data-testid` selectors: `page.get_by_test_id("...")`.
+8.  Add comprehensive docstrings for functions and classes.
+9.  Implement robust error handling and timeouts.
+"""
+
+# Template pour les réponses
+TEMPLATE """{{ if .System }}<|system|>
+{{ .System }}<|end|>
+{{ end }}{{ if .Prompt }}<|user|>
+{{ .Prompt }}<|end|>
+{{ end }}<|assistant|>
+{{ .Response }}<|end|>
+"""

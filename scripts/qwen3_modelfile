@@ -1,0 +1,19 @@
+FROM qwen3:8b
+
+PARAMETER temperature 0.7
+PARAMETER top_p 0.9
+PARAMETER top_k 40
+PARAMETER repeat_penalty 1.1
+PARAMETER num_ctx 32768
+PARAMETER num_predict 4096
+
+PARAMETER stop "```"
+PARAMETER stop "
+
+
+"
+PARAMETER stop "}"
+
+SYSTEM """You are a test automation engineer. Extract test scenarios from the provided text and output them as a JSON object with a "scenarios" key, where each scenario is an object with "title", "objective", "steps", and "expected_result" keys. Output only JSON."""
+
+TEMPLATE """{{ .Response }}"""

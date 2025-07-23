@@ -1,0 +1,291 @@
+version: '3.8'
+
+services:
+  # Ollama
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama-service
+    volumes:
+      - ollama-models:/root/.ollama
+      - ./scripts:/scripts:ro
+    ports:
+      - "11434:11434"
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    deploy:
+      resources:
+        limits:
+          memory: 12G
+          cpus: '8'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - ai-network
+
+  # Redis unique
+  redis:
+    image: redis:7-alpine
+    container_name: redis-cache
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: >
+      redis-server
+      --appendonly yes
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      --maxmemory 8gb
+      --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - ai-network
+
+  # Doctoplus OCR
+  doctoplus:
+    build:
+      context: ./doctopus_ocr
+      dockerfile: Dockerfile
+    container_name: doctoplus-core
+    volumes:
+      - ./data/input:/app/data/input
+      - ./data/processed:/app/data/processed
+      - ./data/cache:/app/data/cache
+      - ./data/reports:/app/data/report
+      - doctoplus-config:/app/config
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DOCTOPLUS_CONFIG=/app/config/config.json
+    networks:
+      - ai-network
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '4'
+
+  # OCR Service Wrapper
+  ocr-service:
+    build:
+      context: .
+      dockerfile: services/ocr/Dockerfile
+    container_name: ocr-api-wrapper
+    depends_on:
+      - doctoplus
+      - redis
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./data/input:/data/input:ro
+      - ./data/processed:/data/processed
+      - ./temp:/tmp/ocr_temp
+    environment:
+      - DOCTOPLUS_PATH=/app/doctopus_ocr
+      - REDIS_URL=redis://redis:6379
+      - CACHE_TTL=86400
+      - LOG_LEVEL=INFO
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - ai-network
+
+  # ALM Service
+  alm-service:
+    build:
+      context: .
+      dockerfile: services/alm/Dockerfile
+    container_name: alm-connector
+    depends_on:
+      - redis
+    ports:
+      - "8002:8002"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - ALM_API_URL=${ALM_API_URL:-http://alm-server:8080}
+      - ALM_API_KEY=${ALM_API_KEY}
+    networks:
+      - ai-network
+    profiles:
+      - full
+
+  # Excel Service
+  excel-service:
+    build:
+      context: .
+      dockerfile: services/excel/Dockerfile
+    container_name: excel-processor
+    depends_on:
+      - redis
+    ports:
+      - "8003:8003"
+    volumes:
+      - ./data/matrices:/data/matrices
+      - ./templates:/templates:ro
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - TEMPLATE_PATH=/templates
+    networks:
+      - ai-network
+    profiles:
+      - full
+
+  # Playwright Service
+  playwright-service:
+    build:
+      context: .
+      dockerfile: services/playwright/Dockerfile
+    container_name: playwright-runner
+    depends_on:
+      - redis
+    ports:
+      - "8004:8004"
+    volumes:
+      - ./tests/generated:/tests
+      - ./reports:/reports
+      - ./screenshots:/screenshots
+      - ./videos:/videos
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - HEADED=false
+      - BROWSER=chromium
+      - PARALLEL_WORKERS=4
+      - SCREENSHOT_ON_FAILURE=true
+      - VIDEO_ON_FAILURE=true
+    cap_add:
+      - SYS_ADMIN
+    networks:
+      - ai-network
+    profiles:
+      - full
+
+  # Auth Service
+  auth:
+    build:
+      context: ./services/auth_service
+      dockerfile: Dockerfile
+    container_name: altiora-auth
+    ports:
+      - "8005:8005"
+    environment:
+      - DATABASE_URL=sqlite:///./auth.db
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+    volumes:
+      - ./data/auth:/app/data
+    networks:
+      - ai-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Optional orchestrator & UI
+  orchestrator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: test-automation-orchestrator
+    depends_on:
+      - ollama
+      - redis
+      - ocr-service
+    volumes:
+      - ./src:/app/src:ro
+      - ./configs:/app/configs:ro
+      - ./data:/app/data
+      - ./reports:/app/reports
+      - ./logs:/app/logs
+    environment:
+      - PYTHONUNBUFFERED=1
+      - OLLAMA_HOST=ollama:11434
+      - REDIS_URL=redis://redis:6379
+      - OCR_SERVICE_URL=http://ocr-service:8001
+      - ALM_SERVICE_URL=http://alm-service:8002
+      - EXCEL_SERVICE_URL=http://excel-service:8003
+      - PLAYWRIGHT_SERVICE_URL=http://playwright-service:8004
+      - LOG_LEVEL=INFO
+    command: ["python", "-m", "src.test_automation_orchestrator"]
+    networks:
+      - ai-network
+    profiles:
+      - orchestrate
+
+  web-ui:
+    build:
+      context: .
+      dockerfile: services/web/Dockerfile
+    container_name: automation-ui
+    depends_on:
+      - orchestrator
+    ports:
+      - "8080:8080"
+    environment:
+      - API_URL=http://orchestrator:8000
+      - STREAMLIT_SERVER_PORT=8080
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+    networks:
+      - ai-network
+    profiles:
+      - ui
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus-server
+    volumes:
+      - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - ai-network
+
+  dash-dashboard:
+    build:
+      context: .
+      dockerfile: services/dash/Dockerfile
+    container_name: dash-dashboard
+    depends_on:
+      - prometheus
+    ports:
+      - "8050:8050"
+    volumes:
+      - ./src/dashboard:/app
+    command: python app.py
+    networks:
+      - ai-network
+
+# Volumes persistants
+volumes:
+  ollama-models:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${HOME}/.ollama/models
+  redis-data:
+    driver: local
+  doctoplus-config:
+    driver: local
+
+# Réseau
+networks:
+  ai-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# Profils
+# docker-compose up                    # Services de base
+# docker-compose --profile full up     # Tous les services
+# docker-compose --profile orchestrate --profile ui up

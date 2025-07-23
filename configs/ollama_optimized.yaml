@@ -1,0 +1,13 @@
+# configs/ollama_optimized.yaml
+models:
+  qwen3:
+    num_threads: 12  # Utiliser P-cores seulement
+    num_gpu: 0
+    num_batch: 512
+    context_size: 4096  # Réduit pour économiser la RAM
+    f16_kv: false  # Désactiver pour CPU
+
+  starcoder2:
+    num_threads: 8  # Moins de threads pour ce modèle
+    num_batch: 256
+    context_size: 2048

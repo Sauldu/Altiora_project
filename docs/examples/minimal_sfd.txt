@@ -1,0 +1,12 @@
+Spécification Fonctionnelle - Module Connexion
+
+1. L'utilisateur saisit son email et mot de passe
+2. Le système valide les informations
+3. En cas de succès, l'utilisateur est redirigé vers le tableau de bord
+4. En cas d'échec, un message d'erreur est affiché
+
+Cas de test :
+- Connexion réussie
+- Email invalide
+- Mot de passe incorrect
+- Champs vides
