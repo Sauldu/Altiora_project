@@ -6,7 +6,7 @@ Orchestrateur interne – ultra-léger, ultra-résilient
 import logging
 from pathlib import Path
 from typing import Dict, Any
-
+import torch
 import aiofiles
 import tenacity
 import yaml
@@ -96,6 +96,14 @@ class Orchestrator:
                 "saved_scenarios": saved,
             }
 
+        except RuntimeError as e:
+            if "out of memory" in str(e):
+                torch.cuda.empty_cache()
+                logger.warning("Erreur mémoire : cache vidé. Réessayez avec un batch plus petit.")
+                # Réessayez avec un batch plus petit
+            else:
+                logger.error(f"Erreur RuntimeError non gérée : {e}")
+                raise e
         except Exception as e:
-            logger.exception("Échec lors du traitement du SFD.")
-            raise
+            logger.error(f"Erreur non prévue : {e}")
+            raise e

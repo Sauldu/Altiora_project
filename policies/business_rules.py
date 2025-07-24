@@ -30,10 +30,12 @@ class BusinessRules:
         """Return {ok: bool, violations: List[str]}."""
         violations: List[str] = []
 
-        if workflow == "test":
-            violations = self._validate_playwright_test(code_string, meta)
-
-        # Future workflows: elif workflow == "excel": …
+        try:
+            if workflow == "test":
+                violations = self._validate_playwright_test(code_string, meta)
+            # Future workflows: elif workflow == "excel": …
+        except Exception as e:
+            violations.append(f"Unexpected error during validation: {e}")
 
         return {"ok": not violations, "violations": violations}
 

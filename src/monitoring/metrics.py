@@ -1,16 +1,11 @@
 # src/monitoring/metrics.py
-import time
-from functools import wraps
 
 from prometheus_client import Counter, Histogram, Gauge, Info
 
 # Batch
-BATCH_DOCS_TOTAL = Gauge("altiora_batch_docs_total",
-                         "Nombre total de documents à traiter")
-BATCH_SUCCESS_TOTAL = Counter("altiora_batch_success_total",
-                              "Documents traités avec succès")
-BATCH_DURATION = Histogram("altiora_batch_duration_seconds",
-                           "Durée du batch complet")
+BATCH_DOCS_TOTAL = Gauge("altiora_batch_docs_total", "Nombre total de documents à traiter")
+BATCH_SUCCESS_TOTAL = Counter("altiora_batch_success_total", "Documents traités avec succès")
+BATCH_DURATION = Histogram("altiora_batch_duration_seconds", "Durée du batch complet")
 
 # Métriques métier
 sfd_processed = Counter(
@@ -36,27 +31,7 @@ model_info = Info(
     'Informations sur les modèles'
 )
 
-
-# Décorateur de monitoring
-def monitor_performance(metric_name: str):
-    def decorator(func):
-        @wraps(func)
-        async def wrapper(*args, **kwargs):
-            start = time.time()
-            try:
-                result = await func(*args, **kwargs)
-                status = "success"
-            except Exception as e:
-                status = "error"
-                raise
-            finally:
-                duration = time.time() - start
-                test_generation_duration.labels(
-                    model=metric_name,
-                    test_type=kwargs.get('test_type', 'unknown')
-                ).observe(duration)
-            return result
-
-        return wrapper
-
-    return decorator
+# Métriques pour le monitoring en production
+request_count = Counter('qa_requests_total', 'Total QA requests')
+response_time = Histogram('qa_response_time_seconds', 'Response time')
+active_models = Gauge('qa_active_models', 'Number of loaded models')

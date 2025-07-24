@@ -7,8 +7,6 @@ StarCoder2-15b-q8_0 via Ollama – Playwright test generator
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import json
 import logging
 from dataclasses import dataclass
 from datetime import datetime
@@ -16,10 +14,12 @@ from enum import Enum
 from typing import Any, Dict, Optional
 
 import aiohttp
+import torch
+from transformers import BitsAndBytesConfig, AutoModelForCausalLM
 
-from src.utils.retry_handler import retry_handler
-from src.core.model_memory_manager import ModelMemoryManager
 from configs.config_module import ModelConfig
+from src.core.model_memory_manager import ModelMemoryManager
+from src.utils.retry_handler import CircuitBreaker
 
 # ------------------------------------------------------------------
 # Logger
@@ -95,7 +95,19 @@ class StarCoder2OllamaInterface:
     # Lifecycle
     # ------------------------------------------------------------------
     async def initialize(self) -> None:
-        self.model = self.model_memory_manager.get_model(self.model_name)
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.float16,
+            bnb_4bit_use_double_quant=True
+        )
+
+        self.model = AutoModelForCausalLM.from_pretrained(
+            self.model_name,
+            quantization_config=bnb_config,
+            device_map="auto",
+            torch_dtype=torch.float16
+        )
         self.tokenizer = self.model_memory_manager.loaded_models[self.model_name]['tokenizer']
         logger.info("StarCoder2 interface ready with local model.")
 
@@ -118,41 +130,41 @@ class StarCoder2OllamaInterface:
         start_time = asyncio.get_event_loop().time()
 
         async def _do() -> Dict[str, Any]:
-            inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
-            outputs = self.model.generate(
-                **inputs,
-                max_new_tokens=self.config.max_tokens,
-                temperature=self.config.temperature,
-                top_p=self.config.top_p,
-                top_k=self.config.top_k,
-                repetition_penalty=self.config.repeat_penalty,
-                do_sample=True if self.config.temperature > 0 else False,
-                pad_token_id=self.tokenizer.eos_token_id,
-                eos_token_id=self.tokenizer.eos_token_id,
-            )
-            raw = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-            code = self._extract_code(raw)
-            code = self._validate_code(code)
+            try:
+                inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
+                outputs = self.model.generate(
+                    **inputs,
+                    max_new_tokens=self.config.max_tokens,
+                    temperature=self.config.temperature,
+                    top_p=self.config.top_p,
+                    top_k=self.config.top_k,
+                    repetition_penalty=self.config.repeat_penalty,
+                    do_sample=True if self.config.temperature > 0 else False,
+                    pad_token_id=self.tokenizer.eos_token_id,
+                    eos_token_id=self.tokenizer.eos_token_id,
+                )
+                raw = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+                code = self._extract_code(raw)
+                code = self._validate_code(code)
 
-            result = {
-                "code": code,
-                "test_type": test_type.value,
-                "uses_page_object": config.use_page_object,
-                "metadata": {
-                    "generation_time": asyncio.get_event_loop().time() - start_time,
-                    "model": self.model_name,
-                    "scenario_title": scenario.get("titre", "Unknown"),
-                    "timestamp": datetime.now().isoformat(),
-                    "api_mode": "local_inference",
-                },
-            }
-            return result
+                result = {
+                    "code": code,
+                    "test_type": test_type.value,
+                    "uses_page_object": config.use_page_object,
+                    "metadata": {
+                        "generation_time": asyncio.get_event_loop().time() - start_time,
+                        "model": self.model_name,
+                        "scenario_title": scenario.get("titre", "Unknown"),
+                        "timestamp": datetime.now().isoformat(),
+                        "api_mode": "local_inference",
+                    },
+                }
+                return result
+            except Exception as e:
+                logger.error(f"Erreur lors de la génération du test Playwright: {e}")
+                raise
 
         return await self.circuit_breaker.call(_do)
-
-    @retry_handler.circuit_breaker
-    async def critical_operation():
-        await some_function()
 
     # ------------------------------------------------------------------
     # Code extraction & validation
@@ -176,4 +188,20 @@ Steps:
 Browser: {config.browser}
 Use Page Objects: {config.use_page_object}
 ```python
-# Your code here"""
+# Your code here
+"""
+
+    @staticmethod
+    def _extract_code(raw: str) -> str:
+        # Logique pour extraire le code généré
+        start_marker = "```python"
+        end_marker = "```"
+        start = raw.find(start_marker) + len(start_marker)
+        end = raw.find(end_marker, start)
+        return raw[start:end].strip()
+
+    @staticmethod
+    def _validate_code(code: str) -> str:
+        # Logique pour valider le code généré
+        # Par exemple, utiliser un linter ou un formatter
+        return code

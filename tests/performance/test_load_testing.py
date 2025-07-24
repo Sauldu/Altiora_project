@@ -5,16 +5,15 @@ Optimisés pour Intel i5-13500H (14 cores, 32GB RAM)
 """
 
 import asyncio
-import time
-import psutil
-import aiohttp
-import json
-from pathlib import Path
-import pytest
-from typing import Dict, Any, List, Optional
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
-from dataclasses import dataclass
 import logging
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, Any, List
+
+import aiohttp
+import psutil
+import pytest
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +52,8 @@ class CPULoadTester:
             "load_average": psutil.getloadavg()
         }
 
-    def _get_cpu_temperature(self) -> float:
+    @staticmethod
+    def _get_cpu_temperature() -> float:
         """Récupère la température CPU (Linux)"""
         try:
             with open('/sys/class/thermal/thermal_zone0/temp', 'r') as f:
@@ -61,7 +61,8 @@ class CPULoadTester:
         except:
             return 0.0
 
-    async def stress_test_qwen3(self, num_concurrent: int = 10):
+    @staticmethod
+    async def stress_test_qwen3(num_concurrent: int = 10):
         """Test de charge sur Qwen3 avec analyses parallèles"""
 
         test_payloads = [
@@ -116,7 +117,8 @@ class CPULoadTester:
 
         return metrics
 
-    async def memory_stress_test(self, data_size_mb: int = 100):
+    @staticmethod
+    async def memory_stress_test(data_size_mb: int = 100):
         """Test de stress mémoire avec gros volumes de données"""
 
         # Générer des données volumineuses
@@ -163,7 +165,8 @@ class CPULoadTester:
 
         return metrics
 
-    async def concurrent_playwright_tests(self, num_tests: int = 50):
+    @staticmethod
+    async def concurrent_playwright_tests(num_tests: int = 50):
         """Test avec génération parallèle de tests Playwright"""
 
         test_scenarios = [
@@ -235,7 +238,6 @@ async def test_cpu_load_80_percent():
     assert metrics["throughput"] > 0.5  # Au moins 0.5 req/sec
 
     # Vérifier que le CPU ne dépasse pas 90%
-    import psutil
     cpu_percent = psutil.cpu_percent(interval=5)
     assert cpu_percent < 90, f"CPU trop élevé: {cpu_percent}%"
 
@@ -265,3 +267,29 @@ async def test_concurrent_test_generation():
 
     assert metrics["tests_generated"] >= 18  # 90% de succès
     assert metrics["avg_generation_time"] < 30  # Moins de 30s par test
+
+
+@pytest.mark.performance
+@pytest.mark.asyncio
+async def test_error_handling():
+    """Test de gestion des erreurs"""
+
+    tester = CPULoadTester()
+
+    # Simuler une erreur de connexion
+    async def failing_request():
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.post(
+                        "http://localhost:11434/api/generate",
+                        json={"model": "invalid_model", "prompt": "Test"},
+                        timeout=300
+                ) as resp:
+                    return await resp.json()
+            except Exception as e:
+                logger.error(f"Erreur requête: {e}")
+                return None
+
+    result = await failing_request()
+
+    assert result is None  # Vérifier que l'erreur est gérée correctement

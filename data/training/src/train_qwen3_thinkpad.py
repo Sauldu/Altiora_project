@@ -1,7 +1,8 @@
-#!/usr/bin/env python3
+# src/training/train_qwen3_thinkpad.py
+# !/usr/bin/env python3
 """
 Qwen3-32B-Q4_K_M Fine-Tuning Trainer
-CPU-optimised for 32 GB RAM (Intel i5 13ᵍᵉⁿ)
+CPU-optimisé pour 32 GB RAM (Intel i5 13ᵉⁿ)
 """
 
 import argparse
@@ -12,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import torch
-from datasets import Dataset
+from datasets import load_dataset, Dataset
 from peft import LoraConfig, get_peft_model, TaskType
 from transformers import (
     AutoModelForCausalLM,
@@ -26,9 +27,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-# ------------------------------------------------------------------
-# Config
-# ------------------------------------------------------------------
 @dataclass
 class Qwen3Config:
     model_name: str = os.getenv("MODEL_NAME", "Qwen/Qwen3-32B-q4_K_M")
@@ -44,9 +42,6 @@ class Qwen3Config:
     num_workers: int = int(os.getenv("NUM_WORKERS", "4"))
 
 
-# ------------------------------------------------------------------
-# Trainer
-# ------------------------------------------------------------------
 class Qwen3Trainer:
     def __init__(self, cfg: Qwen3Config) -> None:
         self.config_path = Path("configs/training_config.json")
@@ -59,9 +54,6 @@ class Qwen3Trainer:
         with open(self.config_path, 'r') as f:
             return json.load(f)
 
-    # --------------------------------------------------------------
-    # Helpers
-    # --------------------------------------------------------------
     @staticmethod
     def _check_ram() -> None:
         try:
@@ -99,12 +91,19 @@ class Qwen3Trainer:
         self.model = get_peft_model(self.model, lora)
         self.model.print_trainable_parameters()
 
-    # --------------------------------------------------------------
-    # Dataset
-    # --------------------------------------------------------------
+        # Activation du gradient checkpointing
+        self.model.gradient_checkpointing_enable()
+
+        # Activation du mixed precision training
+        self.model.half()
+
     def _load_dataset(self, path: Path) -> Dataset:
-        raw = [json.loads(line) for line in Path(path).read_text(encoding="utf-8").splitlines()]
-        ds = Dataset.from_list(raw)
+        ds = load_dataset(
+            "json",
+            data_files=str(path),
+            streaming=True,
+            cache_dir="./cache"
+        )
 
         def fmt(sample):
             return {
@@ -127,9 +126,6 @@ class Qwen3Trainer:
             remove_columns=ds.column_names,
         )
 
-    # --------------------------------------------------------------
-    # Training
-    # --------------------------------------------------------------
     def train(self, dataset_path: Path) -> None:
         self._load_model_tokenizer()
         ds = self._load_dataset(dataset_path)
@@ -147,7 +143,7 @@ class Qwen3Trainer:
             report_to="tensorboard",
             dataloader_num_workers=self.cfg.num_workers,
             remove_unused_columns=False,
-            fp16=False,
+            fp16=True,  # Mixed precision
             bf16=False,
             tf32=False,
             dataloader_pin_memory=False,
@@ -169,14 +165,12 @@ class Qwen3Trainer:
         logger.info("Training complete → %s", self.cfg.output_dir)
 
 
-# ------------------------------------------------------------------
-# CLI
-# ------------------------------------------------------------------
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", required=True, type=Path, help="JSONL dataset")
     parser.add_argument("--output", type=Path, default=Path("./models/qwen3-finetuned"))
     args = parser.parse_args()
 
-    cfg = Qwen3Config(output_dir=str(args.output))
-    Qwen3Trainer(cfg).train(args.dataset)
+    config = Qwen3Config(output_dir=str(args.output))
+    trainer = Qwen3Trainer(config)
+    trainer.train(args.dataset)

@@ -49,7 +49,6 @@ class RetryHandler:
 
     def circuit_breaker(self, func: Callable) -> Callable:
         """Décorateur de circuit breaker"""
-
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             if self.open_until and self.open_until > datetime.now():
@@ -63,7 +62,6 @@ class RetryHandler:
                 if self.failures >= self.failure_threshold:
                     self.open_until = datetime.now() + timedelta(seconds=self.recovery_timeout)
                 raise e
-
         return wrapper
 
     async def exponential_backoff(self, attempt: int, base_delay: float = 1.0, max_delay: float = 60.0) -> float:

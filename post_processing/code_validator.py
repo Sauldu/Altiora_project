@@ -1,3 +1,4 @@
+# src/post_processing/code_validator.py
 """
 Module pour la validation du code Python et Playwright généré.
 
@@ -15,14 +16,19 @@ Le validateur est conçu pour être utilisé de manière asynchrone et retourne 
 objet Pydantic `ValidationResult` détaillé.
 """
 
-import asyncio
 import ast
+import asyncio
+import logging
 import re
 import tempfile
 from pathlib import Path
 from typing import List, Optional, Tuple
 
 from pydantic import BaseModel, Field
+
+# Configuration du logger
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.ERROR)
 
 
 class ValidationResult(BaseModel):
@@ -51,16 +57,22 @@ class CodeValidator:
     def __init__(self, ruff_config_path: Optional[str] = None):
         self.ruff_config_path = ruff_config_path
 
-    async def _run_subprocess(self, command: str, *args: str) -> Tuple[int, str, str]:
-        process = await asyncio.create_subprocess_exec(
-            command, *args,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-        stdout, stderr = await process.communicate()
-        return process.returncode, stdout.decode('utf-8'), stderr.decode('utf-8')
+    @staticmethod
+    async def _run_subprocess(command: str, *args: str) -> Tuple[int, str, str]:
+        try:
+            process = await asyncio.create_subprocess_exec(
+                command, *args,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await process.communicate()
+            return process.returncode, stdout.decode('utf-8'), stderr.decode('utf-8')
+        except Exception as e:
+            logger.error(f"Erreur lors de l'exécution du subprocess : {e}")
+            raise
 
-    def _validate_playwright_specifics(self, code_string: str) -> List[str]:
+    @staticmethod
+    def _validate_playwright_specifics(code_string: str) -> List[str]:
         """Vérifie les meilleures pratiques spécifiques à Playwright."""
         warnings = []
 
@@ -113,7 +125,7 @@ class CodeValidator:
             ruff_args = ['check', str(temp_file_path), '--quiet']
             if self.ruff_config_path:
                 ruff_args.extend(['--config', self.ruff_config_path])
-            
+
             ruff_code, ruff_stdout, _ = await self._run_subprocess('ruff', *ruff_args)
             if ruff_code != 0:
                 result.linting_errors = [line for line in ruff_stdout.strip().split('\n') if line]
@@ -123,6 +135,9 @@ class CodeValidator:
             if black_code != 0:
                 result.formatting_errors = [line for line in black_stderr.strip().split('\n') if line]
 
+        except Exception as e:
+            logger.error(f"Erreur lors de la validation du code : {e}")
+            raise
         finally:
             temp_file_path.unlink()
 
@@ -142,17 +157,17 @@ async def main():
 
     print("--- Test Python valide ---")
     result_good = await validator.validate(good_code)
-    print(f"Passé: {result_good.passed}\n{result_good.dict(exclude_defaults=True)}\n")
+    print(f"Passé: {result_good.passed}\n{result_good.model_dump(exclude_defaults=True)}\n")
     assert result_good.passed
 
     print("--- Test Python syntaxe incorrecte ---")
     result_syntax = await validator.validate(bad_syntax_code)
-    print(f"Passé: {result_syntax.passed}\n{result_syntax.dict(exclude_defaults=True)}\n")
+    print(f"Passé: {result_syntax.passed}\n{result_syntax.model_dump(exclude_defaults=True)}\n")
     assert not result_syntax.passed and result_syntax.syntax_error
 
     print("--- Test Python style incorrect ---")
     result_style = await validator.validate(bad_style_code)
-    print(f"Passé: {result_style.passed}\n{result_style.dict(exclude_defaults=True)}\n")
+    print(f"Passé: {result_style.passed}\n{result_style.model_dump(exclude_defaults=True)}\n")
     assert not result_style.passed and (result_style.linting_errors or result_style.formatting_errors)
 
     # --- Cas de tests Playwright ---
@@ -170,12 +185,12 @@ def test_does_nothing(page):
 '''
     print("--- Test Playwright valide ---")
     result_pw_good = await validator.validate(valid_playwright_code, code_type="playwright")
-    print(f"Passé: {result_pw_good.passed}\n{result_pw_good.dict(exclude_defaults=True)}\n")
+    print(f"Passé: {result_pw_good.passed}\n{result_pw_good.model_dump(exclude_defaults=True)}\n")
     assert result_pw_good.passed
 
     print("--- Test Playwright invalide (manque de bonnes pratiques) ---")
     result_pw_bad = await validator.validate(invalid_playwright_code, code_type="playwright")
-    print(f"Passé: {result_pw_bad.passed}\n{result_pw_bad.dict(exclude_defaults=True)}\n")
+    print(f"Passé: {result_pw_bad.passed}\n{result_pw_bad.model_dump(exclude_defaults=True)}\n")
     assert not result_pw_bad.passed and result_pw_bad.playwright_warnings
 
 

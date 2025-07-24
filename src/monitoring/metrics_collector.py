@@ -45,6 +45,11 @@ class MetricsCollector:
             'Cache hit rate percentage'
         )
 
+        # Métriques pour le monitoring en production
+        self.request_count = Counter('qa_requests_total', 'Total QA requests')
+        self.response_time = Histogram('qa_response_time_seconds', 'Response time')
+        self.active_models = Gauge('qa_active_models', 'Number of loaded models')
+
     def track_request(self, endpoint: str, method: str):
         def decorator(func):
             @wraps(func)
@@ -65,6 +70,8 @@ class MetricsCollector:
                         method=method,
                         status=status
                     ).observe(duration)
+                    self.request_count.inc()
+                    self.response_time.observe(duration)
 
             return wrapper
 
