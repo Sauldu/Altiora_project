@@ -1,6 +1,6 @@
 # src/core/enhanced_pipeline.py
 import asyncio
-from typing import AsyncIterator, TypeVar, Callable
+from typing import AsyncIterator, TypeVar, Callable, List
 
 T = TypeVar('T')
 

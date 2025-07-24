@@ -3,25 +3,19 @@
 Tests d'intégration pour le pipeline complet SFD → Tests Playwright
 """
 
-import pytest
-import asyncio
-import json
-import tempfile
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
-from typing import Dict, List, Any
 
-from src.core.altiora_assistant import AltioraQAAssistant
-from src.models.sfd_models import SFDAnalysisRequest
-from src.core.altiora_assistant import AltioraQAAssistant
-from src.models.sfd_models import SFDAnalysisRequest
+import pytest
+
 from services.ocr.ocr_wrapper import extract_with_doctoplus
+from src.core.altiora_assistant import AltioraQAAssistant
+from src.models.sfd_models import SFDAnalysisRequest
 
 
 @pytest.fixture(scope="session")
 async def full_orchestrator():
     """Fixture pour l'orchestrateur complet."""
-    orchestrator = Orchestrator()
+    orchestrator = AltioraQAAssistant()
     await orchestrator.initialize()
     yield orchestrator
     await orchestrator.close()
@@ -76,10 +70,10 @@ async def test_sfd_to_test_pipeline_complete(full_orchestrator, tmp_path: Path):
     sfd_path.write_text(sample_sfd_content)
 
     # 2. Configuration du test
-    sfd_request = SFDAnalysisRequest(content=sfd_path.read_text(), extraction_type=config["extraction_type"])
+    sfd_request = SFDAnalysisRequest(content=sfd_path.read_text(), extraction_type="complete")
 
     # 3. Exécution du pipeline
-    result = await full_orchestrator.analyze_sfd(sfd_request)
+    result = await full_orchestrator.run_full_pipeline(str(sfd_path))
 
     # 4. Assertions
     assert result["status"] == "completed"

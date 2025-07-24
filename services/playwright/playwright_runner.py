@@ -11,7 +11,7 @@ import shutil
 import subprocess
 import uuid
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Union
 from concurrent.futures import ProcessPoolExecutor
 import traceback
@@ -147,8 +147,8 @@ async def health_check():
         try:
             await redis_client.ping()
             redis_ok = True
-        except:
-            pass
+        except redis.exceptions.ConnectionError:
+            redis_ok = False
     
     # Vérifier Playwright
     playwright_ok = await check_playwright_health()
@@ -352,12 +352,16 @@ async def prepare_test_files(tests: List[TestCode], workspace_dir: Path) -> List
         # Ajouter les imports nécessaires si manquants
         code = ensure_test_imports(test.code)
         
-        # Écrire le fichier
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(code)
-        
-        test_files.append(file_path)
-        logger.info(f"Test préparé: {file_path}")
+        try:
+            # Écrire le fichier
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(code)
+            
+            test_files.append(file_path)
+            logger.info(f"Test préparé: {file_path}")
+        except (IOError, OSError) as e:
+            logger.error(f"Error writing test file {file_path}: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to write test file: {file_path}")
     
     # Créer conftest.py pour la configuration Playwright
     await create_conftest(workspace_dir)
@@ -427,8 +431,12 @@ async def page(browser, browser_context_args):
 '''
     
     conftest_path = workspace_dir / "conftest.py"
-    with open(conftest_path, 'w', encoding='utf-8') as f:
-        f.write(conftest_content)
+    try:
+        with open(conftest_path, 'w', encoding='utf-8') as f:
+            f.write(conftest_content)
+    except (IOError, OSError) as e:
+        logger.error(f"Error writing conftest.py to {conftest_path}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to write conftest.py: {conftest_path}")
 
 
 def generate_pytest_config(config: ExecutionConfig, workspace_dir: Path) -> List[str]:
@@ -536,19 +544,19 @@ async def run_tests_parallel(
     # Parser le rapport JSON
     report_path = workspace_dir / "report.json"
     if report_path.exists():
-        with open(report_path) as f:
-            report = json.load(f)
-        
-        return parse_pytest_report(report, workspace_dir)
-    else:
-        # Fallback si pas de rapport
-        return [TestResult(
-            test_name="all_tests",
-            status="error",
-            duration=0,
-            error_message="Pas de rapport généré",
-            error_trace=stderr.decode() if stderr else None
-        )]
+        try:
+            with open(report_path) as f:
+                report = json.load(f)
+            return parse_pytest_report(report, workspace_dir)
+        except (IOError, OSError, json.JSONDecodeError) as e:
+            logger.error(f"Error reading or parsing pytest report {report_path}: {e}")
+            return [TestResult(
+                test_name="all_tests",
+                status="error",
+                duration=0,
+                error_message=f"Failed to read or parse report: {e}",
+                error_trace=stderr.decode() if stderr else None
+            )]
 
 
 async def run_single_test(
@@ -833,8 +841,12 @@ async def generate_html_report(
     )
     
     # Écrire le rapport
-    with open(report_path, 'w', encoding='utf-8') as f:
-        f.write(html_content)
+    try:
+        with open(report_path, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+    except (IOError, OSError) as e:
+        logger.error(f"Error writing HTML report to {report_path}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to write HTML report: {report_path}")
     
     return str(report_path)
 
@@ -850,13 +862,17 @@ async def collect_artifacts(execution_id: str, workspace_dir: Path) -> str:
     
     zip_path = artifacts_dir / f"{execution_id}.zip"
     
-    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-        # Ajouter tous les fichiers d'artifacts
-        for pattern in ["**/*.png", "**/*.webm", "**/*.zip", "**/*.json"]:
-            for file_path in workspace_dir.glob(pattern):
-                if file_path.is_file():
-                    arcname = file_path.relative_to(workspace_dir)
-                    zipf.write(file_path, arcname)
+    try:
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            # Ajouter tous les fichiers d'artifacts
+            for pattern in ["**/*.png", "**/*.webm", "**/*.zip", "**/*.json"]:
+                for file_path in workspace_dir.glob(pattern):
+                    if file_path.is_file():
+                        arcname = file_path.relative_to(workspace_dir)
+                        zipf.write(file_path, arcname)
+    except (IOError, OSError) as e:
+        logger.error(f"Error creating artifacts zip file {zip_path}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to create artifacts zip: {zip_path}")
     
     return str(zip_path)
 
@@ -1000,7 +1016,7 @@ async def get_stats():
             async for _ in redis_client.scan_iter("execution:*"):
                 exec_count += 1
             stats["cached_executions"] = exec_count
-        except:
+        except redis.exceptions.ConnectionError:
             stats["cached_executions"] = "error"
     
     return stats

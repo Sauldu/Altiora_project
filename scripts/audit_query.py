@@ -6,9 +6,15 @@ def query_last_hour():
     files = glob.glob("logs/audit/*.jsonl.zst")
     cutoff = datetime.utcnow() - timedelta(hours=1)
     for path in files:
-        with open(path, "rb") as f:
-            data = zstandard.ZstdDecompressor().decompress(f.read())
-        for line in data.decode().splitlines():
-            ev = json.loads(line)
-            if datetime.fromisoformat(ev["ts"]) > cutoff:
-                print(ev)
+        try:
+            with open(path, "rb") as f:
+                data = zstandard.ZstdDecompressor().decompress(f.read())
+            for line in data.decode().splitlines():
+                try:
+                    ev = json.loads(line)
+                    if datetime.fromisoformat(ev["ts"]) > cutoff:
+                        print(ev)
+                except json.JSONDecodeError as e:
+                    print(f"Error decoding JSON from line in {path}: {e}")
+        except (IOError, OSError, zstandard.ZstdError) as e:
+            print(f"Error processing file {path}: {e}")

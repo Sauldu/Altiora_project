@@ -1,6 +1,4 @@
-"""
-Redis configuration and client management
-"""
+# src/infrastructure/redis_config.py
 import redis.asyncio as redis
 from typing import Optional
 from configs.config_module import get_settings
@@ -17,8 +15,8 @@ class RedisManager:
         """Get or create Redis client"""
         if not self._client:
             self._client = await redis.from_url(
-                f"redis://{self.settings.redis.host}:{self.settings.redis.port}",
-                password=self.settings.redis.password,
+                self.settings.redis_url,
+                password=self.settings.redis_password,
                 decode_responses=True,
                 max_connections=10
             )

@@ -160,6 +160,9 @@ class StarCoder2OllamaInterface:
                     },
                 }
                 return result
+            except (RuntimeError, ValueError) as e:
+                logger.error(f"Erreur de modèle lors de la génération du test Playwright: {e}")
+                raise
             except Exception as e:
                 logger.error(f"Erreur lors de la génération du test Playwright: {e}")
                 raise

@@ -179,7 +179,7 @@ class CPUOptimizer:
                             results["tokens_per_second"].append(eval_count / eval_duration)
                             results["memory_usage"].append(end_memory - start_memory)
                 
-                except Exception as e:
+                except aiohttp.ClientError as e:
                     logger.error(f"Erreur benchmark: {e}")
         
         # Calculer les moyennes
@@ -310,8 +310,11 @@ SYSTEM Tu es un expert optimisé pour CPU avec adaptateur LoRA spécialisé.
             output_path = Path(f"configs/optimized_{model_type}_modelfile")
             output_path.parent.mkdir(exist_ok=True)
             
-            with open(output_path, "w") as f:
-                f.write(modelfile)
+            try:
+                with open(output_path, "w") as f:
+                    f.write(modelfile)
+            except (IOError, OSError) as e:
+                logger.error(f"Error writing Modelfile to {output_path}: {e}")
             
             logger.info(f"✅ Modelfile optimisé sauvé: {output_path}")
         

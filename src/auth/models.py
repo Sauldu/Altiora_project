@@ -3,12 +3,28 @@ Modèles d'authentification utilisateur
 """
 from datetime import datetime
 from enum import Enum
-from typing import Optional, List
-from pydantic import BaseModel, EmailStr, Field
+from typing import List
+from typing import Optional
+
+from pydantic import BaseModel, validator, field_validator
+from pydantic import EmailStr, Field
 from sqlalchemy import Column, String, DateTime, Boolean, Integer, Text
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
+
+
+class SFDRequest(BaseModel):
+    content: str
+    project_id: Optional[str] = None
+
+    @field_validator('content')
+    def validate_content(cls, v):
+        if not v or len(v.strip()) == 0:
+            raise ValueError("Content cannot be empty")
+        if len(v) > 1_000_000:
+            raise ValueError("Content too large")
+        return v
 
 
 class UserRole(str, Enum):

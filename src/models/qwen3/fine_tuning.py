@@ -40,14 +40,18 @@ class QwenFineTuningManager:
         dataset_path = self.data_dir / output_file
         dataset_path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(dataset_path, "w", encoding="utf-8") as f:
-            for item in raw_data:
-                prompt = self._build_prompt(item["spec"])
-                response = self._build_response(item["tests"])
-                f.write(json.dumps({"instruction": prompt, "input": "", "output": response}, ensure_ascii=False) + "\n")
+        try:
+            with open(dataset_path, "w", encoding="utf-8") as f:
+                for item in raw_data:
+                    prompt = self._build_prompt(item["spec"])
+                    response = self._build_response(item["tests"])
+                    f.write(json.dumps({"instruction": prompt, "input": "", "output": response}, ensure_ascii=False) + "\n")
 
-        logger.info(f"Dataset créé : {dataset_path} ({len(raw_data)} lignes)")
-        return dataset_path
+            logger.info(f"Dataset créé : {dataset_path} ({len(raw_data)} lignes)")
+            return dataset_path
+        except (IOError, OSError) as e:
+            logger.error(f"Error preparing dataset {dataset_path}: {e}")
+            raise
 
     @staticmethod
     def _build_prompt(spec: str) -> str:
@@ -120,15 +124,19 @@ Extraire les scénarios de test au format JSON."""
         # Simulation : comptage de réponses valides
         total = 0
         valid = 0
-        with open(test_dataset, "r", encoding="utf-8") as f:
-            for line in f:
-                total += 1
-                try:
-                    data = json.loads(line)
-                    if "scenarios" in data.get("output", ""):
-                        valid += 1
-                except Exception:
-                    pass
+        try:
+            with open(test_dataset, "r", encoding="utf-8") as f:
+                for line in f:
+                    total += 1
+                    try:
+                        data = json.loads(line)
+                        if "scenarios" in data.get("output", ""):
+                            valid += 1
+                    except json.JSONDecodeError:
+                        pass
+        except (IOError, OSError) as e:
+            logger.error(f"Error reading test dataset {test_dataset}: {e}")
+            return {"accuracy": 0.0, "samples": 0}
 
         score = valid / total if total else 0.0
         logger.info(f"Évaluation {adapter_name} : {score:.2%}")

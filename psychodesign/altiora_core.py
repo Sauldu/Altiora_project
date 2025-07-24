@@ -81,9 +81,12 @@ class AltioraCore:
     def _load_default_personality(self) -> PersonalityProfile:
         profile_file = self.core_path / f"{self.user_id}_profile.json"
         if profile_file.exists():
-            with open(profile_file) as f:
-                data = json.load(f)
-                return PersonalityProfile(**data)
+            try:
+                with open(profile_file) as f:
+                    data = json.load(f)
+                    return PersonalityProfile(**data)
+            except (IOError, OSError, json.JSONDecodeError) as e:
+                self.logger.error(f"Error loading profile for {self.user_id}: {e}")
 
         return PersonalityProfile(
             user_id=self.user_id,
@@ -255,12 +258,15 @@ class AltioraCore:
 
     async def _save_state(self) -> None:
         """Sauvegarde l’état complet (personnalité + historique)"""
-        with open(self.core_path / f"{self.user_id}_profile.json", "w") as f:
-            json.dump(asdict(self.personality), f, indent=2, default=str)
-        with open(self.core_path / f"{self.user_id}_evolution.json", "w") as f:
-            json.dump([asdict(e) for e in self.evolution_history], f, indent=2, default=str)
-        with open(self.core_path / f"{self.user_id}_proposals.json", "w") as f:
-            json.dump([asdict(p) for p in self.learning_proposals], f, indent=2, default=str)
+        try:
+            with open(self.core_path / f"{self.user_id}_profile.json", "w") as f:
+                json.dump(asdict(self.personality), f, indent=2, default=str)
+            with open(self.core_path / f"{self.user_id}_evolution.json", "w") as f:
+                json.dump([asdict(e) for e in self.evolution_history], f, indent=2, default=str)
+            with open(self.core_path / f"{self.user_id}_proposals.json", "w") as f:
+                json.dump([asdict(p) for p in self.learning_proposals], f, indent=2, default=str)
+        except (IOError, OSError) as e:
+            self.logger.error(f"Error saving state for {self.user_id}: {e}")
 
     # ------------------------------------------------------------------
     # Accès en lecture

@@ -10,14 +10,17 @@ from typing import List
 from fastapi import Depends, FastAPI, Request, Response
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import HTMLResponse
-from fastapi.security import HTTPBearer  # 1️⃣  imported correctly
+from fastapi.security import HTTPBearer
 from prometheus_client import Counter, Gauge, generate_latest
 from pydantic import BaseModel
+from dependency_injector.wiring import inject, Provide
 
 from infrastructure.redis_config import get_redis_client
 from middleware.cache_middleware import cache_middleware
 from middleware.rbac_middleware import verify_permission
 from src.core.container import Container
+from src.orchestrator import Orchestrator
+from src.utils.compression import decompress_data, compress_data
 
 
 # ------------------------------------------------------------------

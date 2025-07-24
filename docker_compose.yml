@@ -64,6 +64,11 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - DOCTOPLUS_CONFIG=/app/config/config.json
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - ai-network
     deploy:
@@ -114,6 +119,11 @@ services:
       - REDIS_URL=redis://redis:6379
       - ALM_API_URL=${ALM_API_URL:-http://alm-server:8080}
       - ALM_API_KEY=${ALM_API_KEY}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - ai-network
     profiles:
@@ -135,6 +145,11 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379
       - TEMPLATE_PATH=/templates
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - ai-network
     profiles:
@@ -164,6 +179,11 @@ services:
       - VIDEO_ON_FAILURE=true
     cap_add:
       - SYS_ADMIN
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - ai-network
     profiles:
@@ -182,13 +202,13 @@ services:
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
     volumes:
       - ./data/auth:/app/data
-    networks:
-      - ai-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+    networks:
+      - ai-network
 
   # Optional orchestrator & UI
   orchestrator:
@@ -216,6 +236,11 @@ services:
       - PLAYWRIGHT_SERVICE_URL=http://playwright-service:8004
       - LOG_LEVEL=INFO
     command: ["python", "-m", "src.test_automation_orchestrator"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - ai-network
     profiles:
@@ -234,6 +259,11 @@ services:
       - API_URL=http://orchestrator:8000
       - STREAMLIT_SERVER_PORT=8080
       - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - ai-network
     profiles:
@@ -246,6 +276,11 @@ services:
       - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
       - "9090:9090"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - ai-network
 
@@ -261,6 +296,11 @@ services:
     volumes:
       - ./src/dashboard:/app
     command: python app.py
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8050/_dash-layout"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - ai-network
 

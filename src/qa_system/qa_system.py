@@ -2,6 +2,14 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import asyncio
+import time
+
+# Placeholder for qa_system, replace with actual import
+class QASystem:
+    async def answer_async(self, question, context, model, temperature):
+        return type('obj', (object,), {'text': 'Mock Answer', 'confidence': 0.9})()
+
+qa_system = QASystem()
 
 app = FastAPI(title="Altiora QA API")
 

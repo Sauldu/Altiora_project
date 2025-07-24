@@ -116,11 +116,14 @@ class PolicyEnforcer:
             "audit": {"rejected": True, "violations": violations},
         }
 
-    def _append_audit(self, entry: Dict[str, Any]):
-        audit_file = Path("logs/policy_audit.jsonl")
-        audit_file.parent.mkdir(exist_ok=True)
-        with audit_file.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    def _append_audit(self, entry: Dict[str, Any}):
+        try:
+            audit_file = Path("logs/policy_audit.jsonl")
+            audit_file.parent.mkdir(exist_ok=True)
+            with audit_file.open("a", encoding="utf-8") as f:
+                f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        except (IOError, OSError) as e:
+            logger.error(f"Error writing to audit log: {e}")
 
 
 # ------------------------------------------------------------------

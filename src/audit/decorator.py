@@ -2,7 +2,9 @@
 import datetime
 import functools
 
+from pathlib import Path
 from src.audit.writer import AsyncAuditWriter
+from src.audit.models import AuditEvent
 
 writer = AsyncAuditWriter(Path("logs/audit"))
 

@@ -1,5 +1,4 @@
 import os
-import sys
 
 
 def export_project_to_markdown(directory, output_file="Altiora.md", split_count=1):
@@ -113,7 +112,6 @@ def export_project_to_markdown(directory, output_file="Altiora.md", split_count=
     if split_count > 1:
         base_name = os.path.splitext(output_file)[0]
         total_size = sum(size for _, size in content_with_size)
-        target_size = total_size / split_count
 
         current_parts = [[] for _ in range(split_count)]
         current_sizes = [0] * split_count
@@ -126,26 +124,32 @@ def export_project_to_markdown(directory, output_file="Altiora.md", split_count=
         for i in range(split_count):
             if i == 0:
                 # Première partie : inclure l'arborescence
-                part_header = f"# Structure et contenu du projet (Partie {i + 1}/{split_count})\n\n"
+                part_header = "# Structure et contenu du projet (Partie {}/{})\n\n".format(i + 1, split_count)
                 part_header += structure_tree  # Arborescence uniquement ici
             else:
                 # Autres parties : en-tête simple sans arborescence
-                part_header = f"# Partie {i + 1}/{split_count} du projet\n\n"
+                part_header = "# Partie {}/{} du projet\n\n".format(i + 1, split_count)
 
             part_content = [part_header] + current_parts[i]
             part_output_path = f"{base_name}_{i + 1}.md"
 
-            with open(part_output_path, "w", encoding="utf-8") as f:
-                f.writelines(part_content)
+            try:
+                with open(part_output_path, "w", encoding="utf-8") as f:
+                    f.writelines(part_content)
+            except (IOError, OSError) as e:
+                print(f"Error writing to {part_output_path}: {e}")
 
         print(f"{split_count} fichiers générés avec l'arborescence uniquement dans la première partie : {base_name}_*.md")
     else:
         # Ajouter l'arborescence pour le fichier unique
-        header = f"# Structure et contenu du projet\n\n" + structure_tree
+        header = "# Structure et contenu du projet\n\n" + structure_tree
         full_content = [header] + [entry for entry, _ in content_with_size]
-        with open(output_file, "w", encoding="utf-8") as f:
-            f.writelines(full_content)
-        print(f"Fichier {output_file} généré !")
+        try:
+            with open(output_file, "w", encoding="utf-8") as f:
+                f.writelines(full_content)
+            print(f"Fichier {output_file} généré !")
+        except (IOError, OSError) as e:
+            print(f"Error writing to {output_file}: {e}")
 
 
 if __name__ == "__main__":

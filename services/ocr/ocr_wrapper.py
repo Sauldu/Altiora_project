@@ -216,6 +216,9 @@ async def extract_upload(
             cache=cache,
         )
         return await extract_text(request)
+    except (IOError, OSError) as e:
+        logger.error(f"Error writing uploaded file to {temp_path}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save uploaded file")
     finally:
         temp_path.unlink(missing_ok=True)
 

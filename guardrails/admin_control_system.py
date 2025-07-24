@@ -213,10 +213,13 @@ class AdminControlSystem:
             if path.exists():
                 if path.is_file():
                     # Écraser avec des données aléatoires avant suppression
-                    with open(path, 'wb') as f:
-                        f.write(secrets.token_bytes(path.stat().st_size))
-                    path.unlink()
-                    self.logger.info(f"Securely deleted file: {path}")
+                    try:
+                        with open(path, 'wb') as f:
+                            f.write(secrets.token_bytes(path.stat().st_size))
+                        path.unlink()
+                        self.logger.info(f"Securely deleted file: {path}")
+                    except (IOError, OSError) as e:
+                        self.logger.error(f"Error wiping file {path}: {e}")
                 elif path.is_dir():
                     shutil.rmtree(path)
                     self.logger.info(f"Deleted directory: {path}")
@@ -297,33 +300,36 @@ class AdminControlSystem:
         
         for log_pattern in log_patterns:
             if log_pattern.exists() and log_pattern.is_file():
-                with open(log_pattern, 'r', encoding='utf-8') as f:
-                    for line in f:
-                        try:
-                            # Parser les logs (format: timestamp - level - message)
-                            if " - " in line:
-                                parts = line.strip().split(" - ", 2)
-                                if len(parts) >= 3:
-                                    timestamp_str = parts[0]
-                                    level = parts[1]
-                                    message = parts[2]
-                                    
-                                    # Parser le timestamp
-                                    try:
-                                        timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S,%f")
-                                    except:
+                try:
+                    with open(log_pattern, 'r', encoding='utf-8') as f:
+                        for line in f:
+                            try:
+                                # Parser les logs (format: timestamp - level - message)
+                                if " - " in line:
+                                    parts = line.strip().split(" - ", 2)
+                                    if len(parts) >= 3:
+                                        timestamp_str = parts[0]
+                                        level = parts[1]
+                                        message = parts[2]
+                                        
+                                        # Parser le timestamp
+                                        try:
+                                            timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S,%f")
+                                        except ValueError:
                                         timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
-                                    
-                                    # Filtrer par date et utilisateur
-                                    if timestamp >= cutoff_date and (user_id in message or user_id == "all"):
-                                        filtered_logs.append({
-                                            "timestamp": timestamp.isoformat(),
-                                            "level": level,
-                                            "message": message,
-                                            "source": str(log_pattern.name)
-                                        })
-                        except Exception as e:
-                            self.logger.debug(f"Error parsing log line: {e}")
+                                        
+                                        # Filtrer par date et utilisateur
+                                        if timestamp >= cutoff_date and (user_id in message or user_id == "all"):
+                                            filtered_logs.append({
+                                                "timestamp": timestamp.isoformat(),
+                                                "level": level,
+                                                "message": message,
+                                                "source": str(log_pattern.name)
+                                            })
+                            except Exception as e:
+                                self.logger.debug(f"Error parsing log line: {e}")
+                except (IOError, OSError) as e:
+                    self.logger.error(f"Error reading log file {log_pattern}: {e}")
         
         # Trier par timestamp
         filtered_logs.sort(key=lambda x: x["timestamp"], reverse=True)
@@ -338,32 +344,35 @@ class AdminControlSystem:
         if not backup_path or not Path(backup_path).exists():
             raise ValueError(f"Backup path invalid: {backup_path}")
         
-        # Si c'est un fichier ZIP, extraire d'abord
-        if backup_path.endswith('.zip'):
-            extract_dir = Path(backup_path).parent / "temp_restore"
-            extract_dir.mkdir(exist_ok=True)
-            
-            with zipfile.ZipFile(backup_path, 'r') as zipf:
-                zipf.extractall(extract_dir)
-            
-            # Restaurer depuis le dossier extrait
-            await self._restore_user_data_from_directory(user_id, extract_dir)
-            
-            # Nettoyer
-            shutil.rmtree(extract_dir)
-        else:
-            # Si c'est un fichier JSON encrypté
-            if backup_path.endswith('.json.enc'):
-                with open(backup_path, 'rb') as f:
-                    encrypted_data = f.read()
+        try:
+            # Si c'est un fichier ZIP, extraire d'abord
+            if backup_path.endswith('.zip'):
+                extract_dir = Path(backup_path).parent / "temp_restore"
+                extract_dir.mkdir(exist_ok=True)
                 
-                decrypted_data = self.cipher.decrypt(encrypted_data)
-                user_data = json.loads(decrypted_data.decode())
+                with zipfile.ZipFile(backup_path, 'r') as zipf:
+                    zipf.extractall(extract_dir)
                 
-                # Restaurer les données
-                await self._restore_user_profile(user_id, user_data)
-        
-        self.logger.info(f"Restored user {user_id} from backup: {backup_path}")
+                # Restaurer depuis le dossier extrait
+                await self._restore_user_data_from_directory(user_id, extract_dir)
+                
+                # Nettoyer
+                shutil.rmtree(extract_dir)
+            else:
+                # Si c'est un fichier JSON encrypté
+                if backup_path.endswith('.json.enc'):
+                    with open(backup_path, 'rb') as f:
+                        encrypted_data = f.read()
+                    
+                    decrypted_data = self.cipher.decrypt(encrypted_data)
+                    user_data = json.loads(decrypted_data.decode())
+                    
+                    # Restaurer les données
+                    await self._restore_user_profile(user_id, user_data)
+            
+            self.logger.info(f"Restored user {user_id} from backup: {backup_path}")
+        except (IOError, OSError, zipfile.BadZipFile) as e:
+            self.logger.error(f"Error restoring from backup {backup_path}: {e}")
 
     # ------------------------------------------------------------------
     # Helper methods for implementation
@@ -471,25 +480,28 @@ class AdminControlSystem:
             "voice_profile": {}
         }
         
-        # Charger le profil de personnalité
-        profile_path = Path(f"altiora_core/{user_id}_profile.json")
-        if profile_path.exists():
-            with open(profile_path, 'r', encoding='utf-8') as f:
-                user_data["personality"] = json.load(f)
-        
-        # Charger l'historique d'évolution
-        evolution_path = Path(f"altiora_core/{user_id}_evolution.json")
-        if evolution_path.exists():
-            with open(evolution_path, 'r', encoding='utf-8') as f:
-                user_data["evolution_history"] = json.load(f)
-        
-        # Charger le profil du quiz
-        quiz_path = Path(f"quiz_data/{user_id}_profile.json")
-        if quiz_path.exists():
-            with open(quiz_path, 'r', encoding='utf-8') as f:
-                quiz_data = json.load(f)
-                user_data["preferences"] = quiz_data.get("preferences", {})
-                user_data["voice_profile"] = quiz_data.get("vocal_profile", {})
+        try:
+            # Charger le profil de personnalité
+            profile_path = Path(f"altiora_core/{user_id}_profile.json")
+            if profile_path.exists():
+                with open(profile_path, 'r', encoding='utf-8') as f:
+                    user_data["personality"] = json.load(f)
+            
+            # Charger l'historique d'évolution
+            evolution_path = Path(f"altiora_core/{user_id}_evolution.json")
+            if evolution_path.exists():
+                with open(evolution_path, 'r', encoding='utf-8') as f:
+                    user_data["evolution_history"] = json.load(f)
+            
+            # Charger le profil du quiz
+            quiz_path = Path(f"quiz_data/{user_id}_profile.json")
+            if quiz_path.exists():
+                with open(quiz_path, 'r', encoding='utf-8') as f:
+                    quiz_data = json.load(f)
+                    user_data["preferences"] = quiz_data.get("preferences", {})
+                    user_data["voice_profile"] = quiz_data.get("vocal_profile", {})
+        except (IOError, OSError, json.JSONDecodeError) as e:
+            self.logger.error(f"Error getting user data for {user_id}: {e}")
         
         return user_data
 
@@ -500,8 +512,20 @@ class AdminControlSystem:
             
             # Charger le profil existant
             if profile_path.exists():
-                with open(profile_path, 'r', encoding='utf-8') as f:
-                    profile = json.load(f)
+                try:
+                    with open(profile_path, 'r', encoding='utf-8') as f:
+                        profile = json.load(f)
+                except (IOError, OSError, json.JSONDecodeError) as e:
+                    self.logger.error(f"Error reading profile for {user_id}: {e}")
+                    # Créer un profil par défaut si le fichier est corrompu
+                    profile = {
+                        "user_id": user_id,
+                        "traits": {},
+                        "preferences": {},
+                        "vocal_profile": {},
+                        "behavioral_patterns": {},
+                        "quiz_metadata": {"created_at": datetime.now().isoformat()}
+                    }
             else:
                 # Créer un profil par défaut si inexistant
                 profile = {
@@ -529,7 +553,7 @@ class AdminControlSystem:
             
             return True
             
-        except Exception as e:
+        except (IOError, OSError) as e:
             self.logger.error(f"Failed to apply personality changes: {e}")
             return False
 
@@ -579,8 +603,8 @@ class AdminControlSystem:
                                         "action": action,
                                         "user": user
                                     })
-                        except:
-                            pass
+                        except Exception as e:
+                            self.logger.debug(f"Error parsing log line: {e}")
         
         return recent_commands[:count]
 

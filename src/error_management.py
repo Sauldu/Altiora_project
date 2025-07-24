@@ -158,9 +158,12 @@ class ErrorLogger:
             "error_message": str(error),
             "context": context or {},
         }
-        async with aiofiles.open(self.log_file, "a") as f:
-            await f.write(crypto.encrypt_dict(entry) + "\n")
-        logger.error("Error logged: %s", entry["error_message"])
+        try:
+            async with aiofiles.open(self.log_file, "a") as f:
+                await f.write(crypto.encrypt_dict(entry) + "\n")
+            logger.error("Error logged: %s", entry["error_message"])
+        except (IOError, OSError) as e:
+            logger.error(f"Error writing to error log file {self.log_file}: {e}")
 
 
 class EncryptedLogger(ErrorLogger):

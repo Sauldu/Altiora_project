@@ -1,3 +1,9 @@
+from typing import Optional
+from datetime import datetime
+
+from src.learning.feedback_store import FeedbackStore
+from src.learning.model_updater import ModelUpdater
+
 # src/learning/feedback_system.py
 class FeedbackLearningSystem:
     def __init__(self):

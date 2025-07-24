@@ -1,3 +1,5 @@
+from src.docs.helpers import CodeAnalyzer, DocGenerator
+
 # src/docs/auto_documenter.py
 class AutoDocumenter:
     def __init__(self):

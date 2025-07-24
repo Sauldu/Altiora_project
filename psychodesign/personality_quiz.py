@@ -329,13 +329,16 @@ class PersonalityQuiz:
 
     async def _save_profile(self, profile: PersonalityProfile) -> None:
         """Sauvegarde le profil de personnalité"""
-        self.quiz_path.mkdir(parents=True, exist_ok=True)
-        profile_path = self.quiz_path / f"{self.user_id}_profile.json"
+        try:
+            self.quiz_path.mkdir(parents=True, exist_ok=True)
+            profile_path = self.quiz_path / f"{self.user_id}_profile.json"
 
-        with open(profile_path, "w", encoding="utf-8") as f:
-            json.dump(asdict(profile), f, indent=2, ensure_ascii=False, default=str)
+            with open(profile_path, "w", encoding="utf-8") as f:
+                json.dump(asdict(profile), f, indent=2, ensure_ascii=False, default=str)
 
-        print(f"\n✅ Profil sauvegardé: {profile_path}")
+            print(f"\n✅ Profil sauvegardé: {profile_path}")
+        except (IOError, OSError) as e:
+            print(f"\n❌ Erreur lors de la sauvegarde du profil: {e}")
 
     # ------------------------------------------------------------------
     # Helpers

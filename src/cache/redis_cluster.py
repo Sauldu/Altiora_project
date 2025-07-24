@@ -1,3 +1,6 @@
+from typing import List
+import redis.asyncio as redis
+
 # src/cache/redis_cluster.py
 class RedisClusterClient:
     """Redis cluster pour haute disponibilité"""

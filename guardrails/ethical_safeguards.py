@@ -400,8 +400,11 @@ class EthicalSafeguards:
         log_file = self.safeguards_path / log_name
         log_line = json.dumps(entry, default=str) + "\n"
         
-        with open(log_file, 'a', encoding='utf-8') as f:
-            f.write(log_line)
+        try:
+            with open(log_file, 'a', encoding='utf-8') as f:
+                f.write(log_line)
+        except (IOError, OSError) as e:
+            self.logger.error(f"Error writing to log file {log_file}: {e}")
 
     # ------------------------------------------------------------------
     # Helper methods for file operations
@@ -411,16 +414,23 @@ class EthicalSafeguards:
     def _load_json(path: Path) -> Dict[str, Any]:
         """Charge un fichier JSON"""
         if path.exists():
-            with open(path, 'r', encoding='utf-8') as f:
-                return json.load(f)
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except (IOError, OSError, json.JSONDecodeError) as e:
+                self.logger.error(f"Error reading or parsing JSON file {path}: {e}")
+                return {}
         return {}
 
     @staticmethod
     def _save_json(path: Path, data: Dict[str, Any]) -> None:
         """Sauvegarde des données en JSON"""
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=2, ensure_ascii=False, default=str)
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False, default=str)
+        except (IOError, OSError) as e:
+            self.logger.error(f"Error writing to JSON file {path}: {e}")
 
     # ------------------------------------------------------------------
     # Public methods for reports and summaries

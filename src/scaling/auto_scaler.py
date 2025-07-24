@@ -1,3 +1,7 @@
+from src.scaling.metrics_collector import MetricsCollector
+from src.scaling.load_predictor import LoadPredictor
+from src.scaling.scale_action import ScaleAction
+
 # src/scaling/auto_scaler.py
 class IntelligentAutoScaler:
     def __init__(self):

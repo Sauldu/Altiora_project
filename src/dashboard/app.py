@@ -7,7 +7,7 @@ import dash
 from dash import dcc, html, callback, Output, Input
 import plotly.graph_objs as go
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -84,6 +84,9 @@ def update_all(n_intervals):
 
         return card_requests, card_errors, card_avg, fig_time, fig_rate
 
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Erreur de connexion à Prometheus : {e}")
+        return [html.P("Erreur de connexion")] * 3, {}, {}
     except Exception as e:
         logger.error(e)
         return [html.P("Erreur")] * 3, {}, {}

@@ -135,7 +135,7 @@ class EmergencyHandler:
             try:
                 async with aiohttp.ClientSession() as session:
                     await session.post(url, json=payload, timeout=5)
-            except Exception as e:
+            except aiohttp.ClientError as e:
                 logger.warning("Webhook failed: %s", e)
 
     def _load_webhooks(self):

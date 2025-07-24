@@ -61,9 +61,13 @@ class Settings(BaseSettings):
     @classmethod
     def from_yaml(cls, path: Path):
         """Charger la configuration depuis un fichier YAML."""
-        with open(path, 'r') as f:
-            data = yaml.safe_load(f)
-        return cls(**data)
+        try:
+            with open(path, 'r') as f:
+                data = yaml.safe_load(f)
+            return cls(**data)
+        except (IOError, OSError, yaml.YAMLError) as e:
+            print(f"Error loading configuration from {path}: {e}")
+            raise
 
 # Singleton pour les paramètres
 _settings_instance: Optional[Settings] = None

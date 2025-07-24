@@ -9,8 +9,9 @@ from typing import Any, Dict, List, Optional
 
 import aiofiles
 
-from post_processing.excel_formatter import ExcelFormatter  # noqa: F401
+from post_processing.excel_formatter import ExcelFormatter
 from src.core.state_manager import get_state_manager
+from src.core.strategies.sfd_analysis_strategy import SFDAnalysisStrategy
 from src.models.qwen3.qwen3_interface import Qwen3OllamaInterface
 from src.models.starcoder2.starcoder2_interface import (
     PlaywrightTestConfig,
@@ -29,10 +30,8 @@ class WorkflowEngine:
         self.starcoder2: Optional[StarCoder2OllamaInterface] = None
         self.excel_formatter = ExcelFormatter()
         self.state = None
+        self.strategies = {}
 
-    # ------------------------------------------------------------------
-    # Lifecycle
-    # ------------------------------------------------------------------
     async def initialize(self) -> None:
         self.qwen3 = Qwen3OllamaInterface()
         await self.qwen3.initialize()
@@ -41,6 +40,7 @@ class WorkflowEngine:
         await self.starcoder2.initialize()
 
         self.state = await get_state_manager()
+        self.strategies["sfd_analysis"] = SFDAnalysisStrategy(self.qwen3)
 
     async def close(self) -> None:
         if self.qwen3:
@@ -48,9 +48,6 @@ class WorkflowEngine:
         if self.starcoder2:
             await self.starcoder2.close()
 
-    # ------------------------------------------------------------------
-    # Main workflow
-    # ------------------------------------------------------------------
     async def run_sfd_to_test_suite(self, sfd_path: str, session_id: str) -> Dict[str, Any]:
         steps = [
             ("load_sfd", lambda: self._load_sfd(sfd_path)),
@@ -78,22 +75,28 @@ class WorkflowEngine:
             "generated_at": datetime.now(timezone.utc).isoformat(),
         }
 
-    # ------------------------------------------------------------------
-    # Private steps
-    # ------------------------------------------------------------------
     @staticmethod
     async def _load_sfd(path: str) -> Dict[str, Any]:
         sfd_file = Path(path).resolve()
         if not sfd_file.exists():
             raise FileNotFoundError(sfd_file)
 
-        async with aiofiles.open(sfd_file, encoding="utf-8") as f:
-            content = await f.read()
-        return {"content": content, "file_size": sfd_file.stat().st_size}
+        try:
+            async with aiofiles.open(sfd_file, encoding="utf-8") as f:
+                content = await f.read()
+            return {"content": content, "file_size": sfd_file.stat().st_size}
+        except (IOError, OSError) as e:
+            logger.error(f"Error loading SFD file {sfd_file}: {e}")
+            raise RuntimeError(f"Failed to load SFD file: {e}")
 
     async def _analyze_sfd(self, content: str) -> Dict[str, Any]:
-        result = await self.qwen3.analyze_sfd(content, extraction_type="complete")
-        return {"scenarios": result.get("scenarios", [])}
+        strategy = self.strategies.get("sfd_analysis")
+        if not strategy:
+            raise ValueError("SFD analysis strategy is not initialized")
+
+        context = {"sfd_request": content}
+        result = await strategy.execute(context)
+        return result
 
     async def _generate_tests(self, scenarios: List[Dict[str, Any]]) -> Dict[str, Any]:
         generated: List[Dict[str, Any]] = []
@@ -107,16 +110,11 @@ class WorkflowEngine:
 
     async def _export_report(self, tests: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Generate Excel matrix and return path."""
-        # Ensure ExcelFormatter has create_test_matrix implemented
-        # If stub is used, replace with real implementation or raise NotImplementedError
         report_path = await self.excel_formatter.create_test_matrix(
             scenarios=[t["scenario"] for t in tests],
             tests=[t["test"] for t in tests],
         )
         return {"report_path": str(report_path)}
 
-    # ------------------------------------------------------------------
-    # Utilities
-    # ------------------------------------------------------------------
     async def get_progress(self, session_id: str) -> Dict[str, Any]:
         return await self.state.get_pipeline_progress(session_id)

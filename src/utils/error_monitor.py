@@ -133,9 +133,12 @@ class ErrorLogger:
             "context": context or {},
             "stack_trace": traceback.format_exc()
         }
-        with open(self.log_file, "a") as f:
-            f.write(json.dumps(error_entry) + "\n")
-        logger.error(f"Error logged: {error_entry}")
+        try:
+            with open(self.log_file, "a") as f:
+                f.write(json.dumps(error_entry) + "\n")
+            logger.error(f"Error logged: {error_entry}")
+        except (IOError, OSError) as e:
+            logger.error(f"Error writing to error log file {self.log_file}: {e}")
 
 
 # ------------------------------------------------------------------

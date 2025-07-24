@@ -67,8 +67,11 @@ class PerformanceReportGenerator:
 
     def _dump_json(self, data: Dict[str, Any]) -> None:
         """Save raw JSON for further processing."""
-        with (self.output_dir / "performance_metrics.json").open("w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
+        try:
+            with (self.output_dir / "performance_metrics.json").open("w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+        except (IOError, OSError) as e:
+            logger.error(f"Error writing performance metrics JSON: {e}")
 
     def _create_performance_charts(self, metrics: Dict[str, Any]) -> None:
         """Draw 4 sub-plots and save PNG."""
@@ -155,7 +158,10 @@ class PerformanceReportGenerator:
 </html>
         """
         html_path = self.output_dir / "performance_report.html"
-        html_path.write_text(html, encoding="utf-8")
+        try:
+            html_path.write_text(html, encoding="utf-8")
+        except (IOError, OSError) as e:
+            logger.error(f"Error writing HTML report: {e}")
         return html_path
 
 

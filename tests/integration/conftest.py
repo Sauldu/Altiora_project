@@ -59,7 +59,7 @@ async def wait_for_services():
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, timeout=5) as resp:
                     return resp.status == 200
-        except:
+        except aiohttp.ClientError:
             return False
 
     max_wait = 60

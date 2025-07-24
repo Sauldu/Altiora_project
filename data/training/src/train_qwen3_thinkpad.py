@@ -51,8 +51,15 @@ class Qwen3Trainer:
         self._check_ram()
 
     def _load_config(self):
-        with open(self.config_path, 'r') as f:
-            return json.load(f)
+        try:
+            with open(self.config_path, 'r') as f:
+                return json.load(f)
+        except FileNotFoundError:
+            logger.error(f"Config file not found at {self.config_path}")
+            return {}
+        except json.JSONDecodeError:
+            logger.error(f"Error decoding JSON from {self.config_path}")
+            return {}
 
     @staticmethod
     def _check_ram() -> None:

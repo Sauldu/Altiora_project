@@ -1,3 +1,5 @@
+import json
+
 # src/monitoring/real_time.py
 class RealTimeMonitor:
     """Dashboard WebSocket en temps réel"""

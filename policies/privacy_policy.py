@@ -167,10 +167,13 @@ class PrivacyPolicy:
 
     def _append_audit_log(self, entry: Dict):
         """Append to GDPR audit file."""
-        audit_file = Path("logs/privacy_audit.jsonl")
-        audit_file.parent.mkdir(exist_ok=True)
-        with audit_file.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        try:
+            audit_file = Path("logs/privacy_audit.jsonl")
+            audit_file.parent.mkdir(exist_ok=True)
+            with audit_file.open("a", encoding="utf-8") as f:
+                f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        except (IOError, OSError) as e:
+            logger.error(f"Error writing to audit log: {e}")
 
 
 # ------------------------------------------------------------------
@@ -187,16 +190,19 @@ class ConsentDB:
         granted: bool,
         expires_at: datetime,
     ):
-        self.file.parent.mkdir(parents=True, exist_ok=True)
-        record = {
-            "user_id": user_id,
-            "pii_types": pii_types,
-            "granted": granted,
-            "expires_at": expires_at.isoformat(),
-            "created_at": datetime.utcnow().isoformat(),
-        }
-        with self.file.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        try:
+            self.file.parent.mkdir(parents=True, exist_ok=True)
+            record = {
+                "user_id": user_id,
+                "pii_types": pii_types,
+                "granted": granted,
+                "expires_at": expires_at.isoformat(),
+                "created_at": datetime.utcnow().isoformat(),
+            }
+            with self.file.open("a", encoding="utf-8") as f:
+                f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        except (IOError, OSError) as e:
+            logger.error(f"Error writing to consent database: {e}")
 
     def is_valid(self, user_id: str, pii_type: str) -> bool:
         """Check if latest consent for this (user, pii_type) is granted & not expired."""

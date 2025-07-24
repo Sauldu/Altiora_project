@@ -77,18 +77,25 @@ class MemoryOptimizer:
             path = self._key_path(key)
             if not path.exists():
                 return None
-            with lz4.frame.open(path, "rb") as f:
-                return pickle.load(f)
+            try:
+                with lz4.frame.open(path, "rb") as f:
+                    return pickle.load(f)
+            except (IOError, OSError, lz4.frame.LZ4FrameError, pickle.PickleError) as e:
+                print(f"Error reading from compressed cache {path}: {e}")
+                return None
 
         def set(self, key: str, value: Any) -> None:
             path = self._key_path(key)
-            with lz4.frame.open(path, "wb") as f:
-                pickle.dump(value, f)
-            self._lru[key] = path
-            # LRU eviction
-            if len(self._lru) > self.max_items:
-                oldest = next(iter(self._lru))
-                self._lru.pop(oldest).unlink(missing_ok=True)
+            try:
+                with lz4.frame.open(path, "wb") as f:
+                    pickle.dump(value, f)
+                self._lru[key] = path
+                # LRU eviction
+                if len(self._lru) > self.max_items:
+                    oldest = next(iter(self._lru))
+                    self._lru.pop(oldest).unlink(missing_ok=True)
+            except (IOError, OSError, lz4.frame.LZ4FrameError, pickle.PickleError) as e:
+                print(f"Error writing to compressed cache {path}: {e}")
 
     # ------------------------------------------------------------------
     # Memory-mapped fallback for giant strings / files
@@ -99,8 +106,12 @@ class MemoryOptimizer:
         Returns a read-only mmap object for zero-copy SFD ingestion.
         Useful when SFD > 50 MB and RAM is tight.
         """
-        fd = os.open(file_path, os.O_RDONLY)
-        return mmap.mmap(fd, 0, access=mmap.ACCESS_READ)
+        try:
+            fd = os.open(file_path, os.O_RDONLY)
+            return mmap.mmap(fd, 0, access=mmap.ACCESS_READ)
+        except (IOError, OSError) as e:
+            print(f"Error memory-mapping file {file_path}: {e}")
+            raise
 
     # ------------------------------------------------------------------
     # Utility helpers

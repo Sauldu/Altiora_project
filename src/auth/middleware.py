@@ -9,12 +9,30 @@ from __future__ import annotations
 from typing import Callable
 
 from fastapi import Depends, HTTPException, status
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
 from .jwt_handler import jwt_handler
 from .models import TokenData, User, UserRole  # ✅ imported User
 from .user_service import UserService
+
+limiter = Limiter(key_func=get_remote_address)
+app = FastAPI()
+app.state.limiter = limiter
+app.add_exception_handler(429, _rate_limit_exceeded_handler)
+
+# Ajout de CORS Middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Adjust as needed
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # ------------------------------------------------------------------

@@ -1,6 +1,10 @@
 # src/audit/writer.py
 import asyncio
 from pathlib import Path
+import logging
+from datetime import datetime
+from src.audit.ring_buffer import RingBuffer
+from src.audit.models import AuditEvent
 
 import aiofiles
 import zstandard as zstd
@@ -25,5 +29,9 @@ class AsyncAuditWriter:
             batch = self._buffer.flush()
             if batch:
                 path = self.log_dir / f"audit_{datetime.utcnow():%Y%m%d_%H%M%S}.jsonl.zst"
-                async with aiofiles.open(path, "wb") as f:
-                    await f.write(self._ctx.compress("\n".join(batch).encode()))
+                try:
+                    async with aiofiles.open(path, "wb") as f:
+                        await f.write(self._ctx.compress("\n".join(batch).encode()))
+                except (IOError, OSError, zstd.ZstdError) as e:
+                    logger.error(f"Error writing audit log to {path}: {e}"
+)

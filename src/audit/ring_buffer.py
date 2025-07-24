@@ -1,6 +1,8 @@
 # src/audit/ring_buffer.py
 import json
 from collections import deque
+from dataclasses import asdict
+from src.audit.models import AuditEvent
 
 
 class RingBuffer:

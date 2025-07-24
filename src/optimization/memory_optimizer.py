@@ -1,3 +1,8 @@
+import torch
+import gc
+from src.optimization.memory_pool import MemoryPool
+from src.optimization.model_loader import load_model_4bit
+
 # src/optimization/memory_optimizer.py
 import torch
 import gc

@@ -1,7 +1,9 @@
 # docs/generate_docs.py
 from pathlib import Path
-import ast
 import json
+
+from fastapi import FastAPI
+from fastapi.openapi.utils import get_openapi
 
 
 class DocumentationGenerator:
@@ -25,9 +27,6 @@ class DocumentationGenerator:
 
     def _generate_api_docs(self):
         """Génère la documentation OpenAPI/Swagger"""
-        from fastapi import FastAPI
-        from fastapi.openapi.utils import get_openapi
-
         # Import dynamique de l'app
         import sys
         sys.path.append(str(self.source_dir))
@@ -40,5 +39,8 @@ class DocumentationGenerator:
             routes=app.routes,
         )
 
-        with open("docs/openapi.json", "w") as f:
-            json.dump(openapi_schema, f, indent=2)
+        try:
+            with open("docs/openapi.json", "w") as f:
+                json.dump(openapi_schema, f, indent=2)
+        except (IOError, OSError) as e:
+            print(f"Error writing OpenAPI spec: {e}")

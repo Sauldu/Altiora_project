@@ -22,6 +22,8 @@ from src.auth.middleware import get_current_active_user
 from src.auth.models import Base, Token, UserCreate, UserResponse
 from src.auth.password_utils import is_password_strong
 from src.auth.user_service import UserService
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
 
 # ------------------------------------------------------------------
 # DB setup
@@ -49,17 +51,21 @@ def get_db() -> Session:
 # ------------------------------------------------------------------
 # FastAPI app
 # ------------------------------------------------------------------
+limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(
     title="Altiora Auth Service",
     description="JWT-powered authentication & RBAC",
     version="1.0.0",
 )
+app.state.limiter = limiter
+app.add_exception_handler(429, _rate_limit_exceeded_handler)
 
 
 # ------------------------------------------------------------------
 # Routes
 # ------------------------------------------------------------------
 @app.post("/register", response_model=UserResponse)
+@limiter.limit("10/minute")
 async def register(
         user: UserCreate,
         db: Session = Depends(get_db),
@@ -78,6 +84,7 @@ async def register(
 
 
 @app.post("/login", response_model=Token)
+@limiter.limit("10/minute")
 async def login(
         form: Annotated[OAuth2PasswordRequestForm, Depends()],
         db: Session = Depends(get_db),
@@ -108,6 +115,7 @@ async def login(
 
 
 @app.get("/me", response_model=UserResponse)
+@limiter.limit("10/minute")
 async def read_users_me(
         current_user: UserResponse = Depends(get_current_active_user),
 ) -> UserResponse:
@@ -116,6 +124,7 @@ async def read_users_me(
 
 
 @app.post("/refresh", response_model=Token)
+@limiter.limit("10/minute")
 async def refresh_access_token(
         refresh_token_str: str,  # ✅ renamed to avoid shadowing
         db: Session = Depends(get_db),
@@ -141,6 +150,7 @@ async def refresh_access_token(
 
 
 @app.post("/logout")
+@limiter.limit("10/minute")
 async def logout(
         _: UserResponse = Depends(get_current_active_user),
 ) -> dict[str, str]:
@@ -149,6 +159,7 @@ async def logout(
 
 
 @app.get("/health")
+@limiter.limit("10/minute")
 async def health_check() -> dict[str, str]:
     """Health check endpoint."""
     return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}

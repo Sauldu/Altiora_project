@@ -1,3 +1,6 @@
+import torch
+from src.models.cpu_optimized_model import CPUOptimizedModel
+
 # src/models/hybrid_engine.py
 class HybridEngine:
     """Utilise GPU quand disponible, CPU sinon"""

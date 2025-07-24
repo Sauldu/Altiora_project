@@ -1,5 +1,12 @@
 # src/audit/audit_logger.py
 import datetime
+import json
+
+def get_client_ip():
+    return "unknown"
+
+def get_session_id():
+    return "unknown"
 
 
 class AuditLogger:

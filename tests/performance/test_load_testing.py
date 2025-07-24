@@ -58,7 +58,8 @@ class CPULoadTester:
         try:
             with open('/sys/class/thermal/thermal_zone0/temp', 'r') as f:
                 return float(f.read().strip()) / 1000
-        except:
+        except (IOError, OSError) as e:
+            logger.warning(f"Could not read CPU temperature: {e}")
             return 0.0
 
     @staticmethod

@@ -28,13 +28,16 @@ def main():
     }
 
     # Écriture sécurisée
-    with open(env_file, "w") as f:
-        f.write("# Altiora Secrets - NE PAS COMMIT CE FICHIER !\n")
-        for key, value in secrets.items():
-            f.write(f"{key}={value}\n")
+    try:
+        with open(env_file, "w") as f:
+            f.write("# Altiora Secrets - NE PAS COMMIT CE FICHIER !\n")
+            for key, value in secrets.items():
+                f.write(f"{key}={value}\n")
 
-    print(f"✅ Secrets générés dans {env_file}")
-    print("🔒 Assurez-vous d’ajouter .env à .gitignore")
+        print(f"✅ Secrets générés dans {env_file}")
+        print("🔒 Assurez-vous d’ajouter .env à .gitignore")
+    except (IOError, OSError) as e:
+        print(f"Error writing to .env file: {e}")
 
 
 if __name__ == "__main__":
