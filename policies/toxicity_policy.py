@@ -1,9 +1,9 @@
-# toxicity_policy.py
-"""
-Toxicity & PII detection policy for Altiora – English code, French lexicon
-- Fast in-process regex rules (French vocabulary)
-- Optional external API fallbacks
-- PII redaction + severity scoring
+# policies/toxicity_policy.py
+"""Politique de détection de toxicité et de PII pour Altiora.
+
+Ce module combine une analyse rapide basée sur des expressions régulières locales
+(avec un lexique français) et des appels optionnels à des API externes pour une
+analyse plus approfondie. Il fournit un score de sévérité et masque les PII.
 """
 
 import re
@@ -12,7 +12,7 @@ from typing import Dict, List, Optional
 from dataclasses import dataclass
 from enum import Enum
 
-# Importation de PrivacyPolicy
+# Importation de PrivacyPolicy pour la détection de PII
 from .privacy_policy import PrivacyPolicy, PrivacyReport
 
 try:
@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 class Severity(Enum):
+    """Niveaux de sévérité pour le contenu détecté."""
     LOW = 1
     MEDIUM = 2
     HIGH = 3
@@ -32,6 +33,7 @@ class Severity(Enum):
 
 @dataclass
 class DetectionResult:
+    """Résultat d'une analyse de toxicité."""
     toxic: bool
     severity: Severity
     categories: List[str]
@@ -41,7 +43,7 @@ class DetectionResult:
 
 
 # ------------------------------------------------------------------
-# French keywords & regex
+# Lexique et expressions régulières (Français)
 # ------------------------------------------------------------------
 TOXIC_REGEXES = {
     "hate": [
@@ -69,6 +71,7 @@ PII_REGEXES = {
 
 
 class ToxicityPolicy:
+    """Analyse le texte pour la toxicité et les PII."""
 
     def __init__(
         self,
@@ -77,37 +80,54 @@ class ToxicityPolicy:
         openai_key: Optional[str] = None,
         azure_endpoint: Optional[str] = None,
     ):
+        """Initialise la politique.
+
+        Args:
+            use_external: Si True, utilise les API externes (OpenAI, Azure) comme fallback.
+            openai_key: Clé API pour OpenAI Moderation.
+            azure_endpoint: Endpoint pour Azure Content Safety.
+        """
         self.use_external = use_external and httpx is not None
         self.openai_key = openai_key
         self.azure_endpoint = azure_endpoint
 
     # ------------------------------------------------------------------
-    # Public API
+    # API Publique
     # ------------------------------------------------------------------
     async def scan(self, text: str) -> DetectionResult:
-        """Scan text (French) for toxicity & PII."""
+        """Analyse un texte (français) pour la toxicité et les PII.
+
+        La stratégie est d'abord locale (rapide) puis externe (plus lente mais potentiellement
+        plus précise). Si une toxicité élevée est détectée localement, le résultat est
+        retourné immédiatement.
+        """
         text_lower = text.lower()
         regex_result = self._regex_scan(text_lower)
+
+        # Si la sévérité est déjà haute, on retourne le résultat immédiatement.
         if regex_result.severity in (Severity.HIGH, Severity.CRITICAL):
             return regex_result
 
+        # Si l'option est activée, on utilise une API externe comme fallback.
         if self.use_external:
-            external = await self._external_scan(text_lower)
-            if external.severity.value > regex_result.severity.value:
-                return external
+            external_result = await self._external_scan(text_lower)
+            # On retourne le résultat externe seulement s'il est plus sévère.
+            if external_result.severity.value > regex_result.severity.value:
+                return external_result
 
         return regex_result
 
     # ------------------------------------------------------------------
-    # Regex implementation
+    # Implémentation par expressions régulières
     # ------------------------------------------------------------------
     def _regex_scan(self, text: str) -> DetectionResult:
+        """Analyse le texte en utilisant les expressions régulières locales."""
         toxic = False
         categories: List[str] = []
         max_sev = Severity.LOW
         pii_tokens: List[str] = []
 
-        # Toxicity
+        # Détection de la toxicité
         for cat, patterns in TOXIC_REGEXES.items():
             for pattern in patterns:
                 if re.search(pattern, text, re.IGNORECASE):
@@ -116,7 +136,7 @@ class ToxicityPolicy:
                         categories.append(cat)
                     max_sev = max(max_sev, self._severity_from_cat(cat))
 
-        # PII
+        # Détection des PII
         for pii_type, pattern in PII_REGEXES.items():
             for match in re.finditer(pattern, text):
                 pii_tokens.append(match.group(0))
@@ -126,14 +146,15 @@ class ToxicityPolicy:
             severity=max_sev,
             categories=categories,
             pii_found=pii_tokens,
-            confidence=0.9,
+            confidence=0.9,  # Confiance élevée pour les regex car déterministes
             provider="regex",
         )
 
     # ------------------------------------------------------------------
-    # External API helpers
+    # Assistants pour les API externes
     # ------------------------------------------------------------------
     async def _external_scan(self, text: str) -> DetectionResult:
+        """Tente d'analyser le texte avec une API externe."""
         if self.openai_key:
             return await self._openai_moderation(text)
         if self.azure_endpoint:
@@ -141,19 +162,23 @@ class ToxicityPolicy:
         return self._fallback_result()
 
     async def _openai_moderation(self, text: str) -> DetectionResult:
+        """Analyse le texte avec l'API de modération d'OpenAI."""
         url = "https://api.openai.com/v1/moderations"
         headers = {"Authorization": f"Bearer {self.openai_key}"}
         payload = {"input": text}
 
         async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.post(url, json=payload, headers=headers)
-            if resp.status_code != 200:
-                logger.error("OpenAI moderation error: %s", resp.text)
+            try:
+                resp = await client.post(url, json=payload, headers=headers)
+                resp.raise_for_status() # Lève une exception pour les codes 4xx/5xx
+            except httpx.HTTPStatusError as e:
+                logger.error(f"Erreur de l'API de modération OpenAI : {e.response.text}")
                 return self._fallback_result()
 
         data = resp.json()
-        categories = data["results"][0]["categories"]
-        scores = data["results"][0]["category_scores"]
+        result = data["results"][0]
+        categories = result["categories"]
+        scores = result["category_scores"]
 
         toxic = any(categories.values())
         max_sev = max(
@@ -170,14 +195,17 @@ class ToxicityPolicy:
         )
 
     async def _azure_content_safety(self, text: str) -> DetectionResult:
+        """Analyse le texte avec l'API Azure Content Safety."""
         url = f"{self.azure_endpoint}/contentsafety/text:analyze?api-version=2023-10-01"
         headers = {"Content-Type": "application/json"}
         payload = {"text": text, "categories": ["Hate", "Sexual", "Violence", "SelfHarm"]}
 
         async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.post(url, json=payload, headers=headers)
-            if resp.status_code != 200:
-                logger.error("Azure Content Safety error: %s", resp.text)
+            try:
+                resp = await client.post(url, json=payload, headers=headers)
+                resp.raise_for_status()
+            except httpx.HTTPStatusError as e:
+                logger.error(f"Erreur de l'API Azure Content Safety : {e.response.text}")
                 return self._fallback_result()
 
         data = resp.json()
@@ -191,14 +219,15 @@ class ToxicityPolicy:
             severity=max_sev,
             categories=[b["category"] for b in data["categoriesAnalysis"] if b["severity"] > 0],
             pii_found=[],
-            confidence=0.8,
+            confidence=0.8, # Confiance arbitraire pour Azure
             provider="azure",
         )
 
     # ------------------------------------------------------------------
-    # Utility
+    # Utilitaires
     # ------------------------------------------------------------------
     def _severity_from_cat(self, category: str) -> Severity:
+        """Mappe une catégorie de regex à un niveau de sévérité."""
         mapping = {
             "hate": Severity.HIGH,
             "harassment": Severity.MEDIUM,
@@ -208,6 +237,7 @@ class ToxicityPolicy:
         return mapping.get(category, Severity.LOW)
 
     def _severity_from_openai_cat(self, category: str) -> Severity:
+        """Mappe une catégorie de l'API OpenAI à un niveau de sévérité."""
         return {
             "hate": Severity.HIGH,
             "hate/threatening": Severity.CRITICAL,
@@ -221,6 +251,7 @@ class ToxicityPolicy:
         }.get(category, Severity.LOW)
 
     def _fallback_result(self) -> DetectionResult:
+        """Retourne un résultat non toxique en cas d'échec des API externes."""
         return DetectionResult(
             toxic=False,
             severity=Severity.LOW,
@@ -232,7 +263,7 @@ class ToxicityPolicy:
 
 
 # ------------------------------------------------------------------
-# CLI demo
+# Démonstration en ligne de commande
 # ------------------------------------------------------------------
 if __name__ == "__main__":
     import asyncio
@@ -246,6 +277,6 @@ if __name__ == "__main__":
         ]
         for s in samples:
             res = await policy.scan(s)
-            logger.info(f"{s} → {res}")
+            logging.info(f"{s} → {res}")
 
     asyncio.run(demo())

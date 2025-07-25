@@ -24,7 +24,7 @@ Altiora utilise des modèles de langage de grande taille (LLMs) pour des tâches
 - **`src/models/qwen3/qwen3_interface.py` (Qwen3)** : Spécialisé dans l'analyse des SFD. Il extrait les scénarios de test, les objectifs, les préconditions, les étapes, etc. Il peut également générer des matrices de test structurées. Il intègre désormais la capacité de charger des adaptateurs de personnalité (LoRA) pour affiner son comportement.
 - **`src/models/starcoder2/starcoder2_interface.py` (StarCoder2)** : Dédié à la génération de code, principalement des scripts de test Playwright, à partir des scénarios identifiés par Qwen3.
 
-### 3. Microservices Spécialisés (`services/` et `src/auth`)
+### 3. Microservices Spécialisés (`services/`)
 
 Ces services sont des composants indépendants, souvent conteneurisés (via Docker), qui gèrent des tâches spécifiques et peuvent être appelés par l'orchestrateur :
 - **Auth (`src/auth/`)**: Gère l'authentification des utilisateurs et la génération de tokens JWT. C'est un service FastAPI indépendant avec sa propre base de données SQLite.
@@ -32,6 +32,7 @@ Ces services sont des composants indépendants, souvent conteneurisés (via Dock
 - **ALM (`services/alm/`)** : Interface avec des outils de gestion du cycle de vie des applications (Application Lifecycle Management) comme Jira ou Azure DevOps pour créer ou mettre à jour des tickets (bugs, tâches).
 - **Excel (`services/excel/`)** : Gère la création et le formatage de fichiers Excel, notamment pour les matrices de test, en appliquant des règles de validation et de style.
 - **Playwright (`services/playwright/`)** : Exécute les tests Playwright générés et renvoie les résultats d'exécution.
+- **Dash (`services/dash/`)**: Fournit un tableau de bord interactif pour visualiser les métriques de performance et les résultats des tests.
 
 ### 4. Politiques et Garde-fous (`policies/` et `guardrails/`)
 
@@ -42,7 +43,7 @@ Ces modules sont cruciaux pour la sécurité, la conformité et la qualité des 
 - **`guardrails/admin_control_system.py`** : Système centralisé pour les actions administratives (gel d'utilisateur, sauvegarde, restauration).
 - **`guardrails/emergency_handler.py`** : Gère les situations d'urgence (détection de menaces graves, fuites de données) en déclenchant des actions prédéfinies (gel global, notifications).
 - **`guardrails/interaction_guardrail.py`** : Un point d'entrée unique pour toutes les interactions utilisateur, appliquant les politiques de toxicité et de confidentialité en temps réel.
-- **`guardrails/admin_dashboard.py`** : Une interface graphique (Tkinter) pour la supervision et le contrôle du système par les administrateurs, affichant des métriques et permettant des actions manuelles.
+- **`guardrails/admin_dashboard.py`** : Une interface graphique (Tkinter) pour la supervision et le contrôle du système par les administrateateurs, affichant des métriques et permettant des actions manuelles.
 
 ### 5. Post-traitement (`post_processing/`)
 
@@ -61,7 +62,7 @@ Ces modules affinent les sorties de l'IA ou préparent les données pour d'autre
 6.  **Importation ALM** : Les scénarios de test peuvent être importés dans un outil ALM via le service `services/alm/`.
 7.  **Génération de Code (StarCoder2)** : Pour chaque scénario validé, StarCoder2 (via `starcoder2_interface`) génère le code de test Playwright correspondant. Ce code passe par `post_processing/output_sanitizer` pour le nettoyage et par `post_processing/code_validator` et `policies/business_rules` pour la validation.
 8.  **Exécution des Tests** : Les tests Playwright générés sont exécutés par le service `services/playwright/`.
-9.  **Rapport et Métriques** : Les résultats d'exécution sont collectés, agrégés et un rapport final est généré, incluant des métriques de performance.
+9.  **Rapport et Métriques** : Les résultats d'exécution sont collectés, agrégés et un rapport final est généré, incluant des métriques de performance. Les résultats sont visualisables via le service `services/dash/`.
 
 ## 🛠️ Technologies Utilisées
 
@@ -73,7 +74,7 @@ Ces modules affinent les sorties de l'IA ou préparent les données pour d'autre
 - **Tests d'automatisation** : Playwright, Pytest
 - **Outils de Qualité Code** : Black, Ruff
 - **Conteneurisation** : Docker, Docker Compose
-- **Interface GUI** : Tkinter (pour Admin Dashboard)
+- **Interface GUI** : Tkinter (pour Admin Dashboard), Dash (pour le reporting)
 
 ## 🚀 Déploiement
 

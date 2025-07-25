@@ -1,46 +1,65 @@
 # src/monitoring/dashboard.py
+"""Module pour le tableau de bord de monitoring général de l'application Altiora.
+
+Ce tableau de bord, construit avec Dash (Plotly), fournit une vue d'ensemble
+des métriques techniques clés, telles que les temps de réponse des modèles,
+les taux d'erreur par service, et le nombre de tâches de fine-tuning actives.
+Il est conçu pour les développeurs et les opérateurs système.
+"""
+
 import dash
 from dash import dcc, html, Input, Output
 import plotly.graph_objs as go
 import pandas as pd
 from datetime import datetime, timedelta
 import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class AltioraDashboard:
+    """Tableau de bord de monitoring général pour l'application Altiora."""
+
     def __init__(self, metrics_collector):
+        """Initialise le tableau de bord.
+
+        Args:
+            metrics_collector: Une instance d'un collecteur de métriques (ex: `MetricsCollector`)
+                               fournissant les données nécessaires.
+        """
         self.app = dash.Dash(__name__)
         self.metrics = metrics_collector
         self.setup_layout()
         self.setup_callbacks()
 
     def setup_layout(self):
-        """Configure le layout du dashboard"""
+        """Configure la mise en page (layout) du tableau de bord."""
         self.app.layout = html.Div([
             html.H1('Altiora QA Assistant Monitoring'),
 
-            # Auto-refresh toutes les 5 secondes
-            dcc.Interval(id='interval-component', interval=5000),
+            # Composant d'intervalle pour le rafraîchissement automatique des données.
+            dcc.Interval(id='interval-component', interval=5000, n_intervals=0), # Rafraîchit toutes les 5 secondes.
 
-            # Métriques en temps réel
+            # Métriques en temps réel (cartes).
             html.Div([
                 html.Div([
-                    html.H3('Model Response Time (P95)'),
+                    html.H3('Temps de Réponse Modèle (P95)'),
                     dcc.Graph(id='response-time-graph')
                 ], className='metric-card'),
 
                 html.Div([
-                    html.H3('Error Rate by Service'),
+                    html.H3("Taux d'Erreur par Service"),
                     dcc.Graph(id='error-rate-graph')
                 ], className='metric-card'),
 
                 html.Div([
-                    html.H3('Active Fine-tuning Jobs'),
+                    html.H3('Tâches de Fine-tuning Actives'),
                     html.Div(id='active-jobs-counter', className='big-number')
                 ], className='metric-card'),
             ], className='metrics-row'),
 
-            # Graphiques détaillés
+            # Graphiques détaillés (timeline, comparaison de performance).
             html.Div([
                 dcc.Graph(id='token-usage-timeline'),
                 dcc.Graph(id='model-performance-comparison')
@@ -48,14 +67,16 @@ class AltioraDashboard:
         ])
 
     def setup_callbacks(self):
-        """Configure les callbacks pour mise à jour temps réel"""
+        """Configure les callbacks Dash pour la mise à jour en temps réel des métriques."""
 
         @self.app.callback(
             Output('response-time-graph', 'figure'),
             Input('interval-component', 'n_intervals')
         )
         def update_response_time(n):
-            # Récupération des métriques
+            """Met à jour le graphique du temps de réponse P95 des modèles."""
+            # Récupération des métriques (exemple, à adapter à l'implémentation réelle du collecteur).
+            # Supposons que metrics_collector.get_response_times() retourne un dict avec 'timestamp' et 'p95_response_time'.
             data = self.metrics.get_response_times(minutes=30)
 
             fig = go.Figure()
@@ -67,9 +88,10 @@ class AltioraDashboard:
             ))
 
             fig.update_layout(
-                yaxis_title="Response Time (ms)",
-                xaxis_title="Time",
-                showlegend=False
+                yaxis_title="Temps de Réponse (ms)",
+                xaxis_title="Temps",
+                showlegend=False,
+                title="Temps de Réponse P95 des Modèles"
             )
 
             return fig
@@ -79,6 +101,8 @@ class AltioraDashboard:
             Input('interval-component', 'n_intervals')
         )
         def update_error_rate(n):
+            """Met à jour le graphique du taux d'erreur par service."""
+            # Supposons que metrics_collector.get_error_rates() retourne un dict avec 'services'.
             data = self.metrics.get_error_rates()
 
             fig = go.Figure()
@@ -90,8 +114,9 @@ class AltioraDashboard:
                 ))
 
             fig.update_layout(
-                yaxis_title="Error Rate (%)",
-                showlegend=False
+                yaxis_title="Taux d'Erreur (%)",
+                showlegend=False,
+                title="Taux d'Erreur par Service"
             )
 
             return fig
@@ -101,15 +126,23 @@ class AltioraDashboard:
             Input('interval-component', 'n_intervals')
         )
         def update_active_jobs(n):
+            """Met à jour le compteur de tâches de fine-tuning actives."""
             count = self.metrics.get_active_training_jobs()
             return f"{count}"
 
-    def run(self, debug=False, port=8050):
-        """Lance le dashboard"""
+        # TODO: Implémenter les callbacks pour 'token-usage-timeline' et 'model-performance-comparison'
+
+    def run(self, debug: bool = False, port: int = 8050):
+        """Lance le tableau de bord Dash."
+
+        Args:
+            debug: Active le mode débogage de Dash.
+            port: Le port sur lequel le tableau de bord écoutera.
+        """
         self.app.run_server(debug=debug, port=port, host='0.0.0.0')
 
 
-# CSS personnalisé pour le dashboard
+# CSS personnalisé pour le dashboard (peut être déplacé dans un fichier .css externe).
 app_css = '''
 .metric-card {
     background: #f8f9fa;
@@ -139,68 +172,41 @@ app_css = '''
 '''
 
 
-# src/monitoring/advanced_dashboard.py
-class AdvancedDashboard(AltioraDashboard):
-    """Dashboard avancé avec visualisations ML"""
+# ------------------------------------------------------------------
+# Démonstration (exemple d'utilisation)
+# ------------------------------------------------------------------
+if __name__ == "__main__":
+    import logging
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-    def __init__(self, metrics_collector, model_analyzer):
-        super().__init__(metrics_collector)
-        self.model_analyzer = model_analyzer
-        self.add_ml_visualizations()
+    # Crée un collecteur de métriques factice pour la démonstration.
+    class MockMetricsCollector:
+        def get_response_times(self, minutes: int) -> Dict[str, Any]:
+            # Simule des données de temps de réponse.
+            now = datetime.now()
+            timestamps = [now - timedelta(minutes=i) for i in range(minutes, 0, -1)]
+            p95_times = [200 + i * 5 + (i % 3) * 10 for i in range(minutes)]
+            return {"timestamp": timestamps, "p95_response_time": p95_times}
 
-    def add_ml_visualizations(self):
-        """Ajoute des visualisations spécifiques ML"""
+        def get_error_rates(self) -> Dict[str, Any]:
+            # Simule des taux d'erreur par service.
+            return {"services": [
+                {"name": "OCR", "error_rate": 2.5},
+                {"name": "ALM", "error_rate": 0.8},
+                {"name": "Playwright", "error_rate": 1.2},
+            ]}
 
-        # Heatmap des performances par modèle
-        @self.app.callback(
-            Output('model-heatmap', 'figure'),
-            Input('interval-component', 'n_intervals')
-        )
-        def update_model_heatmap(n):
-            # Matrice de performance des modèles
-            performance_matrix = self.model_analyzer.get_performance_matrix()
+        def get_active_training_jobs(self) -> int:
+            # Simule le nombre de jobs actifs.
+            return 2
 
-            fig = go.Figure(data=go.Heatmap(
-                z=performance_matrix['values'],
-                x=performance_matrix['metrics'],
-                y=performance_matrix['models'],
-                colorscale='RdYlGn'
-            ))
+    metrics_collector = MockMetricsCollector()
+    dashboard = AltioraDashboard(metrics_collector)
 
-            fig.update_layout(
-                title='Model Performance Heatmap',
-                xaxis_title='Metrics',
-                yaxis_title='Models'
-            )
+    print("\n--- Lancement du tableau de bord de monitoring ---")
+    print("Accédez au tableau de bord via votre navigateur à http://localhost:8050")
+    print("Appuyez sur Ctrl+C pour arrêter le serveur.")
 
-            return fig
+    # Lance le serveur Dash.
+    dashboard.run(debug=True, port=8050)
 
-        # Graphique en temps réel de l'utilisation des tokens
-        @self.app.callback(
-            Output('token-usage-timeline', 'figure'),
-            Input('interval-component', 'n_intervals')
-        )
-        def update_token_usage(n):
-            # Données des 60 dernières minutes
-            token_data = self.metrics.get_token_usage(minutes=60)
-
-            fig = go.Figure()
-
-            # Ligne pour chaque modèle
-            for model in token_data['models']:
-                fig.add_trace(go.Scatter(
-                    x=token_data['timestamps'],
-                    y=token_data[model],
-                    mode='lines',
-                    name=model,
-                    stackgroup='one'  # Pour créer un graphique empilé
-                ))
-
-            fig.update_layout(
-                title='Token Usage Over Time',
-                xaxis_title='Time',
-                yaxis_title='Tokens/min',
-                hovermode='x unified'
-            )
-
-            return fig

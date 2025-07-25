@@ -1,11 +1,6 @@
 # src/__init__.py
-from ..configs.validator import validate_on_startup
+"""Initialise le package principal de l'application Altiora.
 
-from .auth.main import app as auth_app
-from .core.container import Container
-from .dashboard.app import app as dashboard_app
-from .orchestrator import Orchestrator
-
-settings = validate_on_startup()
-
-__all__ = ['Orchestrator', 'Container', 'auth_app', 'dashboard_app']
+Ce fichier peut être vide ou contenir des configurations globales
+ou des importations de modules de haut niveau pour faciliter l'accès.
+"""

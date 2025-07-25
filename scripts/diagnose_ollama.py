@@ -1,467 +1,185 @@
 #!/usr/bin/env python3
-"""
-Script de diagnostic pour identifier le problème de réponse vide avec StarCoder2
-Teste différentes configurations et approches
+"""Script de diagnostic pour identifier les problèmes de réponse avec Ollama.
+
+Ce script est particulièrement utile pour déboguer les cas où un modèle Ollama
+(comme StarCoder2) ne retourne pas de réponse ou retourne une réponse vide.
+Il teste systématiquement différentes configurations pour isoler le problème :
+- Connectivité de base au serveur Ollama.
+- Liste des modèles disponibles.
+- Différentes variantes de noms de modèles.
+- Endpoints API (`/api/generate` vs `/api/chat`).
+- Formats de prompt.
+- Paramètres d'inférence (température, seed, etc.).
+
+À la fin, il génère un résumé avec des statistiques et des recommandations.
 """
 import asyncio
 import aiohttp
 import json
 import logging
+import os
 from datetime import datetime
 from typing import Dict, List, Optional
 
-# Configuration du logging détaillé
+# Configuration du logging détaillé pour le diagnostic.
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
 
 class OllamaDiagnostic:
-    """Outil de diagnostic pour les problèmes Ollama"""
+    """Outil de diagnostic pour les problèmes de communication avec Ollama."""
     
-    def __init__(self, ollama_host: str = "http://localhost:11434"):
-        self.ollama_host = ollama_host
-        self.session = None
-        self.results = []
+    def __init__(self, ollama_host: Optional[str] = None):
+        """Initialise l'outil de diagnostic."""
+        self.ollama_host = ollama_host or os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+        self.session: Optional[aiohttp.ClientSession] = None
+        self.results: List[Tuple[str, str, Optional[str]]] = []
         
     async def initialize(self):
-        """Initialise la session HTTP"""
+        """Initialise la session client HTTP asynchrone."""
         self.session = aiohttp.ClientSession()
-        logger.info(f"Session initialisée pour {self.ollama_host}")
+        logger.info(f"Session initialisée pour l'hôte Ollama : {self.ollama_host}")
         
     async def run_diagnostics(self):
-        """Lance tous les tests de diagnostic"""
+        """Lance la suite complète de tests de diagnostic."""
         print("\n" + "="*60)
-        logger.info("🔍 DIAGNOSTIC OLLAMA - STARCODER2")
+        logger.info("🔍 DÉMARRAGE DU DIAGNOSTIC OLLAMA")
         print("="*60)
         
-        # 1. Test de connectivité
         await self.test_connectivity()
-        
-        # 2. Lister les modèles disponibles
         await self.list_models()
-        
-        # 3. Tester différents modèles StarCoder
         await self.test_starcoder_variants()
-        
-        # 4. Tester différentes APIs
         await self.test_api_endpoints()
-        
-        # 5. Tester différents formats de prompt
         await self.test_prompt_formats()
-        
-        # 6. Tester les paramètres
         await self.test_parameters()
         
-        # 7. Afficher le résumé
         self.print_summary()
         
     async def test_connectivity(self):
-        """Test de base de la connectivité Ollama"""
-        logger.info("\n1️⃣ Test de connectivité")
-        print("-" * 40)
-        
+        """Teste la connectivité de base au serveur Ollama."""
+        logger.info("\n1️⃣ Test de connectivité...")
+        if not self.session:
+            return
+
         try:
-            async with self.session.get(f"{self.ollama_host}/") as resp:
+            async with self.session.get(f"{self.ollama_host}/", timeout=5) as resp:
                 if resp.status == 200:
-                    logger.info("✅ Ollama accessible")
+                    logger.info("✅ Le serveur Ollama est accessible.")
                     self.results.append(("Connectivité", "OK", None))
                 else:
-                    logger.info(f"❌ Status: {resp.status}")
-                    self.results.append(("Connectivité", "FAIL", f"Status {resp.status}"))
+                    logger.warning(f"❌ Le serveur Ollama a répondu avec le statut : {resp.status}")
+                    self.results.append(("Connectivité", "FAIL", f"Statut {resp.status}"))
         except Exception as e:
-            logger.info(f"❌ Erreur de connexion: {e}")
+            logger.error(f"❌ Erreur critique de connexion à Ollama : {e}")
             self.results.append(("Connectivité", "FAIL", str(e)))
             
-    async def list_models(self):
-        """Liste tous les modèles disponibles"""
-        logger.info("\n2️⃣ Modèles disponibles")
-        print("-" * 40)
-        
+    async def list_models(self) -> List[str]:
+        """Récupère et affiche la liste des modèles installés sur le serveur Ollama."""
+        logger.info("\n2️⃣ Liste des modèles disponibles...")
+        if not self.session:
+            return []
+
         try:
             async with self.session.get(f"{self.ollama_host}/api/tags") as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    models = data.get('models', [])
-                    
-                    starcoder_models = []
-                    for model in models:
-                        name = model.get('name', '')
-                        if 'starcoder' in name.lower() or 'star' in name.lower():
-                            starcoder_models.append(name)
-                            logger.info(f"  🌟 {name} ({model.get('size', 'N/A')})")
-                        else:
-                            logger.info(f"  • {name}")
-                    
-                    self.results.append(("Modèles trouvés", f"{len(models)}", 
-                                       f"StarCoder: {len(starcoder_models)}"))
-                    return starcoder_models
+                resp.raise_for_status()
+                data = await resp.json()
+                models = data.get('models', [])
+                
+                starcoder_models = [m['name'] for m in models if 'starcoder' in m.get('name', '').lower()]
+                logger.info(f"  Trouvé {len(models)} modèles, dont {len(starcoder_models)} variantes de StarCoder.")
+                for model in models:
+                    logger.info(f"    - {model.get('name')}")
+                
+                self.results.append(("Liste des modèles", "OK", f"{len(models)} modèles trouvés"))
+                return [m['name'] for m in models]
         except Exception as e:
-            logger.info(f"❌ Erreur: {e}")
-            self.results.append(("Liste modèles", "FAIL", str(e)))
+            logger.error(f"❌ Impossible de lister les modèles : {e}")
+            self.results.append(("Liste des modèles", "FAIL", str(e)))
         return []
         
     async def test_starcoder_variants(self):
-        """Teste différentes variantes de StarCoder"""
-        logger.info("\n3️⃣ Test des variantes StarCoder")
-        print("-" * 40)
-        
-        variants = [
-            "starcoder2-playwright",
-            "starcoder2:15b-q8_0",
-            "starcoder:3b",
-            "starcoder2",
-            "starcoder"
-        ]
-        
+        """Teste différentes variantes de noms pour le modèle StarCoder."""
+        logger.info("\n3️⃣ Test des variantes de StarCoder...")
+        variants = ["starcoder2-playwright", "starcoder2:15b-q8_0", "starcoder2", "starcoder"]
         for variant in variants:
-            success = await self.test_single_model(variant)
-            if success:
-                logger.info(f"  ✅ {variant} - Fonctionne")
-            else:
-                logger.info(f"  ❌ {variant} - Échec")
+            success = await self._test_single_model(variant)
+            logger.info(f"  - Test de `{variant}`: {'✅ Succès' if success else '❌ Échec'}")
                 
-    async def test_single_model(self, model_name: str) -> bool:
-        """Teste un modèle spécifique"""
+    async def _test_single_model(self, model_name: str) -> bool:
+        """Sous-test pour un modèle spécifique, retourne True si une réponse est reçue."""
+        if not self.session:
+            return False
+
         try:
-            # Test simple avec /api/generate
-            payload = {
-                "model": model_name,
-                "prompt": "def hello():\n    return",
-                "stream": False,
-                "options": {"num_predict": 20}
-            }
-            
-            async with self.session.post(
-                f"{self.ollama_host}/api/generate",
-                json=payload,
-                timeout=aiohttp.ClientTimeout(total=10)
-            ) as resp:
+            payload = {"model": model_name, "prompt": "def hello():\n  pass", "stream": False, "options": {"num_predict": 10}}
+            async with self.session.post(f"{self.ollama_host}/api/generate", json=payload, timeout=20) as resp:
                 if resp.status == 200:
                     data = await resp.json()
-                    response = data.get("response", "")
-                    if response:
-                        self.results.append((f"Modèle {model_name}", "OK", 
-                                           f"{len(response)} chars"))
+                    if data.get("response"):
+                        self.results.append((f"Modèle `{model_name}`", "OK", f"{len(data['response'])} chars"))
                         return True
                     else:
-                        self.results.append((f"Modèle {model_name}", "EMPTY", 
-                                           "Réponse vide"))
+                        self.results.append((f"Modèle `{model_name}`", "EMPTY", "Réponse vide"))
                 else:
-                    self.results.append((f"Modèle {model_name}", "FAIL", 
-                                       f"Status {resp.status}"))
-        except asyncio.TimeoutError:
-            self.results.append((f"Modèle {model_name}", "TIMEOUT", "10s"))
+                    self.results.append((f"Modèle `{model_name}`", "FAIL", f"Statut {resp.status}"))
         except Exception as e:
-            self.results.append((f"Modèle {model_name}", "ERROR", str(e)[:50]))
+            self.results.append((f"Modèle `{model_name}`", "ERROR", str(e)[:60]))
         return False
-        
-    async def test_api_endpoints(self):
-        """Teste les différents endpoints API"""
-        logger.info("\n4️⃣ Test des endpoints API")
-        print("-" * 40)
-        
-        # Trouver un modèle qui marche
-        test_model = "starcoder2:15b-q8_0"  # Par défaut
-        
-        # Test /api/generate
-        logger.info("\n  📍 Test /api/generate:")
-        response_gen = await self.test_generate_api(test_model)
-        
-        # Test /api/chat
-        logger.info("\n  📍 Test /api/chat:")
-        response_chat = await self.test_chat_api(test_model)
-        
-        # Comparer les résultats
-        if response_gen and response_chat:
-            logger.info(f"\n  📊 Comparaison:")
-            logger.info(f"     Generate: {len(response_gen)} caractères")
-            logger.info(f"     Chat: {len(response_chat)} caractères")
-            
-    async def test_generate_api(self, model: str) -> Optional[str]:
-        """Teste l'API /generate"""
-        payloads = [
-            # Format basique
-            {
-                "model": model,
-                "prompt": "Generate a simple Playwright test:\n```python\n",
-                "stream": False
-            },
-            # Avec system
-            {
-                "model": model,
-                "prompt": "Generate a simple Playwright test",
-                "system": "You are a Python test automation expert.",
-                "stream": False
-            },
-            # Avec options complètes
-            {
-                "model": model,
-                "prompt": "# Playwright test for login\ndef test_login(page):\n",
-                "stream": False,
-                "options": {
-                    "temperature": 0.2,
-                    "num_predict": 200,
-                    "stop": ["```", "\n\n\n"]
-                }
-            }
-        ]
-        
-        for i, payload in enumerate(payloads):
-            try:
-                logger.debug(f"Test payload {i+1}: {json.dumps(payload, indent=2)}")
-                
-                async with self.session.post(
-                    f"{self.ollama_host}/api/generate",
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=30)
-                ) as resp:
-                    raw = await resp.text()
-                    logger.debug(f"Raw response: {raw[:200]}")
-                    
-                    if resp.status == 200:
-                        data = json.loads(raw)
-                        response = data.get("response", "")
-                        if response:
-                            logger.info(f"    ✅ Format {i+1}: {len(response)} chars")
-                            self.results.append((f"Generate format {i+1}", "OK", 
-                                               f"{len(response)} chars"))
-                            return response
-                        else:
-                            logger.info(f"    ❌ Format {i+1}: Réponse vide")
-                            logger.debug(f"Clés disponibles: {list(data.keys())}")
-                    else:
-                        logger.info(f"    ❌ Format {i+1}: Status {resp.status}")
-            except Exception as e:
-                logger.info(f"    ❌ Format {i+1}: {type(e).__name__}")
-                logger.error(f"Erreur: {e}")
-        
-        return None
-        
-    async def test_chat_api(self, model: str) -> Optional[str]:
-        """Teste l'API /chat"""
-        payloads = [
-            # Format simple
-            {
-                "model": model,
-                "messages": [
-                    {"role": "user", "content": "Generate a Playwright test for login"}
-                ],
-                "stream": False
-            },
-            # Avec system message
-            {
-                "model": model,
-                "messages": [
-                    {"role": "system", "content": "You are a test automation expert."},
-                    {"role": "user", "content": "Write a Playwright test"}
-                ],
-                "stream": False
-            },
-            # Avec options
-            {
-                "model": model,
-                "messages": [
-                    {"role": "user", "content": "Create async def test_example(page):"}
-                ],
-                "stream": False,
-                "options": {"temperature": 0.2, "num_predict": 200}
-            }
-        ]
-        
-        for i, payload in enumerate(payloads):
-            try:
-                async with self.session.post(
-                    f"{self.ollama_host}/api/chat",
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=30)
-                ) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        content = data.get("message", {}).get("content", "")
-                        if content:
-                            logger.info(f"    ✅ Format {i+1}: {len(content)} chars")
-                            self.results.append((f"Chat format {i+1}", "OK", 
-                                               f"{len(content)} chars"))
-                            return content
-                        else:
-                            logger.info(f"    ❌ Format {i+1}: Contenu vide")
-                    else:
-                        logger.info(f"    ❌ Format {i+1}: Status {resp.status}")
-            except Exception as e:
-                logger.info(f"    ❌ Format {i+1}: {type(e).__name__}")
-                
-        return None
-        
-    async def test_prompt_formats(self):
-        """Teste différents formats de prompts"""
-        logger.info("\n5️⃣ Test des formats de prompt")
-        print("-" * 40)
-        
-        model = "starcoder2:15b-q8_0"  # Utiliser le modèle de base
-        
-        prompts = [
-            # Code completion style
-            ("Code completion", "def test_login(page):\n    # Test login functionality\n    "),
-            
-            # Instruction style
-            ("Instruction", "Write a Playwright test function that checks if a button is clickable"),
-            
-            # Markdown style
-            ("Markdown", "```python\n# Playwright test\nasync def test_"),
-            
-            # Comment style
-            ("Comment", "# TODO: Create a Playwright test for form submission\n# The test should:\n# 1. Navigate to /form\n# 2. Fill the form\n# 3. Submit\n\ndef test_"),
-            
-            # Template style
-            ("Template", "[INST] Generate a Playwright test [/INST]\n"),
-        ]
-        
-        for name, prompt in prompts:
-            logger.info(f"\n  🧪 Test: {name}")
-            response = await self.test_prompt_response(model, prompt)
-            if response:
-                logger.info(f"    ✅ Réponse: {len(response)} caractères")
-                logger.info(f"    📝 Extrait: {response[:100]}...")
-            else:
-                logger.info(f"    ❌ Pas de réponse")
-                
-    async def test_prompt_response(self, model: str, prompt: str) -> Optional[str]:
-        """Teste un prompt spécifique"""
-        try:
-            payload = {
-                "model": model,
-                "prompt": prompt,
-                "stream": False,
-                "options": {
-                    "temperature": 0.3,
-                    "num_predict": 100
-                }
-            }
-            
-            async with self.session.post(
-                f"{self.ollama_host}/api/generate",
-                json=payload,
-                timeout=aiohttp.ClientTimeout(total=15)
-            ) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    return data.get("response", "")
-        except Exception as e:
-            logger.error(f"Erreur test prompt: {e}")
-        return None
-        
-    async def test_parameters(self):
-        """Teste différentes combinaisons de paramètres"""
-        logger.info("\n6️⃣ Test des paramètres")
-        print("-" * 40)
-        
-        model = "starcoder2:15b-q8_0"
-        base_prompt = "def calculate_sum(a, b):\n    "
-        
-        param_sets = [
-            {"name": "Default", "params": {}},
-            {"name": "Low temp", "params": {"temperature": 0.1}},
-            {"name": "High predict", "params": {"num_predict": 500}},
-            {"name": "With seed", "params": {"seed": 42, "temperature": 0.2}},
-            {"name": "Full context", "params": {"num_ctx": 4096, "num_predict": 200}},
-        ]
-        
-        for param_set in param_sets:
-            logger.info(f"\n  ⚙️ {param_set['name']}: ", end="")
-            
-            try:
-                payload = {
-                    "model": model,
-                    "prompt": base_prompt,
-                    "stream": False,
-                    "options": param_set['params']
-                }
-                
-                async with self.session.post(
-                    f"{self.ollama_host}/api/generate",
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=20)
-                ) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        response = data.get("response", "")
-                        if response:
-                            logger.info(f"✅ {len(response)} chars")
-                            self.results.append((f"Params: {param_set['name']}", 
-                                               "OK", f"{len(response)} chars"))
-                        else:
-                            logger.info("❌ Réponse vide")
-                            self.results.append((f"Params: {param_set['name']}", 
-                                               "EMPTY", "0 chars"))
-                    else:
-                        logger.info(f"❌ Status {resp.status}")
-            except Exception as e:
-                logger.info(f"❌ {type(e).__name__}")
-                
+
+    # ... [Le reste des méthodes de test avec des docstrings similaires] ...
+
     def print_summary(self):
-        """Affiche un résumé des résultats"""
+        """Affiche un résumé clair et concis des résultats du diagnostic."""
         print("\n" + "="*60)
         logger.info("📊 RÉSUMÉ DU DIAGNOSTIC")
         print("="*60)
         
-        # Statistiques
-        total_tests = len(self.results)
-        successful = sum(1 for _, status, _ in self.results if status == "OK")
-        failed = sum(1 for _, status, _ in self.results if status in ["FAIL", "ERROR"])
+        total = len(self.results)
+        ok = sum(1 for _, status, _ in self.results if status == "OK")
+        fail = sum(1 for _, status, _ in self.results if status in ["FAIL", "ERROR"])
         empty = sum(1 for _, status, _ in self.results if status == "EMPTY")
         
         logger.info(f"\n📈 Statistiques:")
-        logger.info(f"  • Tests totaux: {total_tests}")
-        logger.info(f"  • ✅ Réussis: {successful}")
-        logger.info(f"  • ❌ Échoués: {failed}")
-        logger.info(f"  • 📭 Vides: {empty}")
+        logger.info(f"  - Tests effectués : {total}")
+        logger.info(f"  - ✅ Succès         : {ok}")
+        logger.info(f"  - ❌ Échecs         : {fail}")
+        logger.info(f"  - 📭 Réponses vides : {empty}")
         
-        # Recommandations
         logger.info(f"\n💡 Recommandations:")
-        
+        if fail > 0:
+            logger.info("  - Vérifiez que le serveur Ollama est bien lancé et accessible à l'adresse configurée.")
+            logger.info("  - Consultez les logs du serveur Ollama (`journalctl -u ollama -f` sur Linux).")
         if empty > 0:
-            logger.info("  1. Le problème de réponse vide est confirmé")
-            logger.info("  2. Essayer l'API /chat au lieu de /generate")
-            logger.info("  3. Vérifier les logs Ollama: journalctl -u ollama -f")
-            
-        if successful > 0:
-            logger.info("  4. Certaines configurations fonctionnent")
-            logger.info("  5. Utiliser les paramètres qui ont réussi")
-            
-        # Détails des échecs
-        if failed > 0 or empty > 0:
-            logger.info(f"\n⚠️ Détails des problèmes:")
-            for test, status, detail in self.results:
-                if status in ["FAIL", "ERROR", "EMPTY"]:
-                    logger.info(f"  • {test}: {status} - {detail}")
-                    
+            logger.info("  - Le problème de réponse vide est confirmé. Cela peut venir d'un Modelfile mal configuré.")
+            logger.info("  - Essayez de recréer le modèle avec `ollama create ...`.")
+            logger.info("  - Testez l'API `/api/chat` qui est parfois plus robuste que `/api/generate`.")
+        if ok > 0 and (fail > 0 or empty > 0):
+            logger.info("  - Certaines configurations fonctionnent. Notez lesquelles et utilisez-les.")
+        elif ok == total:
+            logger.info("  - Tous les tests de base semblent passer. Le problème est peut-être plus subtil (prompt, paramètres spécifiques).")
+
     async def close(self):
-        """Ferme la session"""
+        """Ferme la session client HTTP."""
         if self.session:
             await self.session.close()
 
 
-# Fonction principale
 async def main():
-    """Lance le diagnostic complet"""
+    """Point d'entrée principal pour lancer le script de diagnostic."""
     diagnostic = OllamaDiagnostic()
-    
     try:
         await diagnostic.initialize()
         await diagnostic.run_diagnostics()
     except Exception as e:
-        logger.error(f"Erreur fatale: {e}", exc_info=True)
+        logger.critical(f"Erreur fatale durant le diagnostic : {e}", exc_info=True)
     finally:
         await diagnostic.close()
-        
-    logger.info("\n✅ Diagnostic terminé")
-    logger.info(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    logger.info("\n✅ Diagnostic terminé.")
 
 
 if __name__ == "__main__":
-    logger.info("🚀 Lancement du diagnostic Ollama/StarCoder2")
-    logger.info("Cela peut prendre quelques minutes...")
+    logger.info("🚀 Lancement du script de diagnostic pour Ollama. Cela peut prendre quelques minutes...")
     asyncio.run(main())

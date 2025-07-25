@@ -17,35 +17,60 @@ Assistant IA personnel avec architecture microservices.
 Altiora_project/
 |-- .env.example                                             # Fichier d'exemple pour les variables d'environnement
 |-- .gitignore                                               # Fichiers et dossiers à ignorer par Git
-|-- pyproject.toml                                           # Fichier de configuration du projet et de build
-|-- requirements.txt                                         # Liste des dépendances Python du projet
-|-- docker-compose.yml                                       # Définition des services pour Docker Compose
+|-- CHANGELOG.md                                             # Journal des modifications du projet
+|-- docker_compose.yml                                       # Définition des services pour Docker Compose
+|-- docker-compose-validation.sh                             # Script de validation pour docker-compose
 |-- Dockerfile                                               # Instructions pour construire l'image Docker principale
+|-- export.py                                                # Script pour exporter des données ou modèles
+|-- pytest.ini                                               # Fichier de configuration pour Pytest
+|-- README.md                                                # Fichier d'information principal du projet
+|-- requirements.txt                                         # Liste des dépendances Python du projet
+|-- setup-script.py                                          # Script d'installation et de configuration
+|-- structure.txt                                            # Description de la structure du projet (ce fichier)
+|
+|-- .github/                                                 # 📁 Configuration pour GitHub
+|   \---workflows/                                            # 📁 Workflows d'intégration continue (CI/CD)
+|       \---ci-cd.yml                                        # Workflow pour le déploiement et les tests automatisés
 |
 |-- cli/                                                     # 📁 Interface en ligne de commande
-|   |-- main.py                                              # Point d'entrée de l'application CLI
 |   |-- __init__.py                                          # Initialiseur du package cli
-|   \---commands/                                          # 📁 Commandes CLI spécifiques
-|       |-- __init__.py                                      # Initialiseur du package commands
+|   |-- main.py                                              # Point d'entrée de l'application CLI
+|   \---commands/                                            # 📁 Commandes CLI spécifiques
 |
 |-- configs/                                                 # 📁 Fichiers de configuration centralisés
+|   |-- __init__.py                                          # Initialiseur du package configs
 |   |-- config_module.py                                     # Module de configuration Pydantic pour les paramètres
+|   |-- emergency_webhooks.yaml                              # Webhooks pour les alertes d'urgence
+|   |-- env-example-complete.yaml                            # Exemple complet de fichier d'environnement
 |   |-- error_handling.yaml                                  # Configuration pour la gestion des erreurs
+|   |-- master_config.yaml                                   # Fichier de configuration principal
 |   |-- models_config.yaml                                   # Configuration des modèles de langue
 |   |-- models.yaml                                          # Définition des modèles utilisés
 |   |-- ollama_config.json                                   # Paramètres de configuration pour Ollama
+|   |-- ollama_optimized.yaml                                # Configuration optimisée pour Ollama
+|   |-- prometheus.yml                                       # Configuration pour la surveillance avec Prometheus
 |   |-- retry_config.yaml                                    # Stratégies de nouvelle tentative pour les opérations réseau
-|   |-- roles.json                                           # Définition des rôles et permissions (RBAC)
+|   |-- roles.yaml                                           # Définition des rôles et permissions (RBAC)
 |   |-- services.yaml                                        # Configuration des micro-services
+|   |-- settings_legacy.py                                   # Anciens paramètres de configuration (legacy)
+|   |-- settings_loader.py                                   # Chargeur de configuration
+|   |-- training_config.json                                 # Configuration pour l'entraînement des modèles
+|   \---validator.py                                        # Script de validation pour la configuration
+|
+|-- data/                                                    # 📁 Données utilisées par l'application
+|   |-- models/                                              # 📁 Modèles de machine learning sauvegardés
+|   |-- scenarios/                                           # 📁 Scénarios de test ou d'utilisation
+|   |-- temp/                                                # 📁 Fichiers de données temporaires
+|   \---training/                                            # 📁 Données pour l'entraînement des modèles
+|
+|-- docker/                                                  # 📁 Fichiers de configuration spécifiques à Docker
 |
 |-- docs/                                                    # 📁 Documentation du projet
-|   |-- Architecture Assistant IA Personnel_Spcifications.md # Spécifications de l'assistant IA
 |   |-- ARCHITECTURE.md                                      # Description de l'architecture globale
 |   |-- env-documentation.md                                 # Documentation des variables d'environnement
+|   |-- generate_docs.py                                     # Script pour générer la documentation
 |   |-- installation_guide.md                                # Guide d'installation
-|   \---examples/                                          # 📁 Exemples d'utilisation
-|       |-- login_test.py                                    # Exemple de script de test Playwright
-|       |-- minimal_sfd.txt                                  # Exemple de document de spécification fonctionnelle
+|   \---examples/                                            # 📁 Exemples d'utilisation
 |
 |-- guardrails/                                              # 🔒 Modules de sécurité et de contrôle
 |   |-- __init__.py                                          # Initialiseur du package guardrails
@@ -55,32 +80,32 @@ Altiora_project/
 |   |-- ethical_safeguards.py                                # Garde-fous éthiques pour l'IA
 |   |-- interaction_guardrail.py                             # Filtres pour les interactions utilisateur
 |   |-- policy_enforcer.py                                   # Application des politiques de sécurité
-|   |-- toxicity_guardrail.py                                # Détection de contenu toxique
+|   \---toxicity_guardrail.py                                # Détection de contenu toxique
+|
+|-- logs/                                                    # 📁 Fichiers de logs de l'application
+|
+|-- models/                                                  # 📁 Modèles de données ou schémas (non-ML)
 |
 |-- policies/                                                # 📋 Règles métier et politiques
 |   |-- __init__.py                                          # Initialiseur du package policies
 |   |-- business_rules.py                                    # Implémentation des règles métier
 |   |-- excel_policy.py                                      # Politiques spécifiques au traitement Excel
 |   |-- privacy_policy.py                                    # Politiques de confidentialité des données
-|   |-- toxicity_policy.py                                   # Politiques relatives à la toxicité du contenu
+|   \---toxicity_policy.py                                   # Politiques relatives à la toxicité du contenu
 |
 |-- post_processing/                                         # 🧹 Nettoyage et formatage des sorties
 |   |-- __init__.py                                          # Initialiseur du package post_processing
 |   |-- code_validator.py                                    # Validation et linting du code généré
 |   |-- excel_formatter.py                                   # Formatage des fichiers Excel
-|   |-- output_sanitizer.py                                  # Nettoyage des sorties (ex: masquage de PII)
-|
-|-- psychodesign/                                            # 🧠 Gestion de la personnalité de l'IA
-|   |-- __init__.py                                          # Initialiseur du package psychodesign
-|   |-- altiora_core.py                                      # Noyau de la personnalité de l'IA
-|   |-- personality_evolution.py                             # Mécanisme d'évolution de la personnalité
-|   |-- personality_quiz.py                                  # Quiz pour définir la personnalité initiale
+|   \---output_sanitizer.py                                  # Nettoyage des sorties (ex: masquage de PII)
 |
 |-- scripts/                                                 # 🛠️ Scripts utilitaires pour le développement
 |   |-- audit_query.py                                       # Script pour interroger les logs d'audit
 |   |-- backup_redis.sh                                      # Script de sauvegarde de la base de données Redis
 |   |-- cpu_optimization_script.py                           # Script pour optimiser l'utilisation du CPU
+|   |-- create_ephemeral_env.sh                              # Script pour créer un environnement éphémère
 |   |-- diagnose_ollama.py                                   # Outil de diagnostic pour Ollama
+|   |-- docker-compose.ephemeral.yml                         # Configuration Docker Compose pour l'environnement éphémère
 |   |-- generate_keys.py                                     # Génération de clés de chiffrement/API
 |   |-- generate_performance_report.py                       # Génération de rapports de performance
 |   |-- qwen3_modelfile                                      # Définition du modèle Qwen3 pour Ollama
@@ -88,96 +113,61 @@ Altiora_project/
 |   |-- setup_integration_tests.sh                           # Script de configuration des tests d'intégration
 |   |-- starcoder2_modelfile                                 # Définition du modèle Starcoder2 pour Ollama
 |   |-- start_dev.sh                                         # Script pour démarrer l'environnement de développement
-|   |-- validate_setup.py                                    # Validation de la configuration de l'environnement
+|   \---validate_setup.py                                    # Validation de la configuration de l'environnement
 |
 |-- services/                                                # 📦 Micro-services conteneurisés
 |   |-- alm/                                                 # 📁 Service ALM (Application Lifecycle Management)
-|   |   |-- alm_service.py                                   # Logique du service ALM
-|   |   |-- Dockerfile                                   # Backup du Dockerfile pour le service
-|   |   |-- requirements.txt                                 # Dépendances Python du service
-|   |   |-- __init__.py                                      # Initialiseur du package
+|   |-- dash/                                                # 📁 Service pour le dashboard
 |   |-- excel/                                               # 📁 Service de traitement Excel
-|   |   |-- Dockerfile                                   # Backup du Dockerfile pour le service
-|   |   |-- excel_service.py                                 # Logique du service Excel
-|   |   |-- requirements.txt                                 # Dépendances Python du service
-|   |   |-- __init__.py                                      # Initialiseur du package
 |   |-- ocr/                                                 # 📁 Service OCR (Reconnaissance Optique de Caractères)
-|   |   |-- Dockerfile                                   # Backup du Dockerfile pour le service
-|   |   |-- ocr_wrapper.py                                   # Wrapper pour le service OCR
-|   |   |-- __init__.py                                      # Initialiseur du package
-|   \---playwright/                                        # 📁 Service d'automatisation avec Playwright
-|       |-- Dockerfile                                   # Backup du Dockerfile pour le service
-|       |-- playwright_runner.py                             # Exécuteur de tests Playwright
-|       |-- requirements.txt                                 # Dépendances Python du service
-|       |-- __init__.py                                      # Initialiseur du package
+|   \---playwright/                                          # 📁 Service d'automatisation avec Playwright
 |
 |-- src/                                                     # 🎯 Cœur de l'application et de l'orchestrateur
-|   |-- App.js                                               # Fichier principal pour l'interface React (si applicable)
+|   |-- __init__.py                                          # Initialiseur du package src
+|   |-- App.js                                               # Fichier principal pour l'interface React
 |   |-- batch_processor.py                                   # Traitement des tâches en lots
 |   |-- config.py                                            # Configuration principale de l'application
 |   |-- error_management.py                                  # Module central de gestion des erreurs
 |   |-- main.py                                              # Point d'entrée principal de l'application
 |   |-- models.py                                            # Modèles de données (Pydantic/SQLAlchemy)
 |   |-- orchestrator.py                                      # Orchestre le pipeline des tâches
-|   |-- __init__.py                                          # Initialiseur du package src
+|   |-- api/                                                 # 📁 API de l'application
 |   |-- audit/                                               # 📁 Journalisation et audit
-|   |   |-- decorator.py                                     # Décorateurs pour l'audit
-|   |   |-- models.py                                        # Modèles de données pour les logs d'audit
-|   |   |-- ring_buffer.py                                   # Buffer circulaire pour les logs en mémoire
-|   |   |-- rotation.py                                      # Logique de rotation des fichiers de log
-|   |   |-- writer.py                                        # Écriture des logs sur disque/réseau
 |   |-- auth/                                                # 📁 Authentification et autorisation
-|   |   |-- auth_integration.py                              # Intégration avec des fournisseurs d'identité
-|   |   |-- Dockerfile                                       # Dockerfile pour le service d'authentification
-|   |   |-- jwt_handler.py                                   # Gestion des tokens JWT
-|   |   |-- main.py                                          # Point d'entrée du service d'auth
-|   |   |-- middleware.py                                    # Middleware d'authentification pour les requêtes
-|   |   |-- models.py                                        # Modèles de données pour les utilisateurs/rôles
-|   |   |-- password_utils.py                                # Utilitaires pour le hachage de mots de passe
-|   |   |-- user_service.py                                  # Logique métier pour la gestion des utilisateurs
+|   |-- cache/                                               # 📁 Gestion du cache
 |   |-- components/                                          # 📁 Composants d'interface (React)
-|   |   |-- Layout.js                                        # Composant de mise en page principal
-|   |   |-- Reports.js                                       # Composant pour l'affichage des rapports
-|   |   |-- Tests.js                                         # Composant pour l'affichage des tests
+|   |-- config/                                              # 📁 Configuration spécifique au code source
 |   |-- core/                                                # 📁 Logique métier principale
-|   |   |-- altiora_assistant.py                             # Classe principale de l'assistant
-|   |   |-- state_manager.py                                 # Gestionnaire d'état centralisé (ex: Redis)
-|   |   |-- workflow_engine.py                               # Moteur d'orchestration des workflows
-|   |   |-- __init__.py                                      # Initialiseur du package
+|   |-- dashboard/                                           # 📁 Code du dashboard
+|   |-- docs/                                                # 📁 Documentation spécifique au code source
+|   |-- ensemble/                                            # 📁 Techniques d'ensemble de modèles
+|   |-- events/                                              # 📁 Gestion des événements
+|   |-- factories/                                           # 📁 Fabriques de modèles et services
+|   |-- gateway/                                             # 📁 Passerelle API
 |   |-- infrastructure/                                      # 📁 Connexion aux services externes
-|   |   |-- encryption.py                                    # Utilitaires de chiffrement
-|   |   |-- redis_config.py                                  # Configuration de la connexion Redis
-|   |   \---monitoring/                                    # 📁 Surveillance et métriques
-|   |       |-- metrics.py                                   # Exposition des métriques (ex: Prometheus)
+|   |-- learning/                                            # 📁 Apprentissage et entraînement
+|   |-- metrics/                                             # 📁 Métriques de performance
 |   |-- middleware/                                          # 📁 Middlewares pour le traitement des requêtes
-|   |   |-- cache_middleware.py                              # Middleware de mise en cache
-|   |   |-- rbac_middleware.py                               # Middleware pour le contrôle d'accès basé sur les rôles
 |   |-- models/                                              # 📁 Interfaces avec les modèles de langue
-|   |   |-- qwen3/                                           # 📁 Interface pour Qwen3
-|   |   |   |-- adapters.py                                  # Adaptateurs pour le fine-tuning
-|   |   |   |-- fine_tuning.py                               # Scripts pour le fine-tuning
-|   |   |   |-- interface.py                                 # Interface de base pour le modèle
-|   |   |   |-- qwen3_interface.py                           # Implémentation spécifique pour Qwen3
-|   |   \---starcoder2/                                    # 📁 Interface pour Starcoder2
-|   |       |-- code_generator.py                            # Génération de code avec Starcoder2
-|   |       |-- interface.py                                 # Interface de base pour le modèle
-|   |       |-- starcoder2_interface.py                      # Implémentation spécifique pour Starcoder2
+|   |-- modules/                                             # 📁 Modules fonctionnels
+|   |-- monitoring/                                          # 📁 Surveillance et métriques
+|   |-- optimization/                                        # 📁 Optimisation des performances
+|   |-- playwright/                                          # 📁 Intégration avec Playwright
+|   |-- plugins/                                             # 📁 Système de plugins
+|   |-- qa_system/                                           # 📁 Système de questions-réponses
 |   |-- rbac/                                                # 📁 Logique RBAC (Role-Based Access Control)
-|   |   |-- manager.py                                       # Gestionnaire des rôles et permissions
-|   |   |-- models.py                                        # Modèles de données pour les rôles/permissions
 |   |-- redux/                                               # 📁 Gestion d'état Redux pour le frontend
-|   |   |-- reportsSlice.js                                  # Slice pour la gestion des rapports
-|   |   |-- store.js                                         # Configuration du store Redux
-|   |   |-- testsSlice.js                                    # Slice pour la gestion des tests
-|   \---utils/                                             # 📁 Utilitaires divers
-|       |-- circuit_breaker.py                               # Implémentation du pattern Circuit Breaker
-|       |-- compression.py                                   # Utilitaires de compression/décompression
-|       |-- error_monitor.py                                 # Surveillance des erreurs
-|       |-- memory_optimizer.py                              # Optimisation de l'utilisation mémoire
-|       |-- model_loader.py                                  # Chargement des modèles de langue
-|       |-- retry_handler.py                                 # Gestionnaire de nouvelles tentatives
+|   |-- repositories/                                        # 📁 Accès aux données (ORM/Repositories)
+|   |-- scaling/                                             # 📁 Mise à l'échelle de l'application
+|   |-- security/                                            # 🔐 Sécurité et chiffrement
+|   |-- training/                                            # 📁 Entraînement des modèles
+|   |-- utils/                                               # 📁 Utilitaires divers
+|   \---validation/                                          # 📁 Validation des données
 |
-\---tests/                                                  # 🧪 Suite de tests du projet
+|-- temp/                                                    # 📁 Fichiers et dossiers temporaires
+|
+\---tests/                                                   # 🧪 Suite de tests du projet
+    |-- __init__.py                                          # Initialiseur du package tests
     |-- conftest.py                                          # Fixtures et configuration pour Pytest
     |-- test_admin_control.py                                # Tests pour le système de contrôle admin
     |-- test_altiora_core.py                                 # Tests pour le noyau de la personnalité
@@ -191,37 +181,46 @@ Altiora_project/
     |-- test_playwright_runner.py                            # Tests pour l'exécuteur Playwright
     |-- test_retry_handler.py                                # Tests pour le gestionnaire de tentatives
     |-- test_services.py                                     # Tests pour les micro-services
-    |-- __init__.py                                          # Initialiseur du package tests
     |-- integration/                                         # 📁 Tests d'intégration
-    |   |-- conftest.py                                      # Fixtures spécifiques à l'intégration
-    |   |-- makefile                                         # Makefile pour les tests d'intégration
-    |   |-- test_full_pipeline.py                            # Test du pipeline complet de bout en bout
-    |   |-- test_performance.py                              # Tests de performance en intégration
-    |   |-- test_services_integration.py                     # Tests d'intégration des services
-    |   |-- __init__.py                                      # Initialiseur du package
     |-- performance/                                         # 📁 Tests de performance et de charge
-    |   |-- config.yaml                                      # Configuration pour les tests de performance
-    |   |-- test_load_testing.py                             # Tests de charge
-    |   |-- test_pipeline_load.py                            # Tests de charge du pipeline
-    |   |-- test_redis_performance.py                        # Tests de performance de Redis
-    \---regression/                                        # 📁 Tests de régression
-        |-- regression_config.yaml                           # Configuration pour les tests de régression
-        |-- run_regression.py                                # Lanceur pour la suite de régression
-        |-- test_regression_suite.py                         # Suite de tests de régression
-        |-- __init__.py                                      # Initialiseur du package
+    \---regression/                                          # 📁 Tests de régression
 ```
 
 ## Utilisation
-+ ```python
-- from src.orchestrator import Orchestrator
-+ from src.altiora_core import AltioraQAAssistant
-+ 
-+ assistant = AltioraQAAssistant()
-+ # Activités multiples possibles
-+ await assistant.analyze_sfd("path/to/sfd.pdf")  # Une activité parmi d'autres
-+ await assistant.manage_test_suite()  # Gestion complète
-+ await assistant.monitor_quality_metrics()
 
-### Monitoring
-- Prometheus : http://localhost:9090
-- Dash Dashboard : http://localhost:8050
+### Interface en Ligne de Commande (CLI)
+
+Le projet inclut une interface en ligne de commande pour interagir avec l'assistant.
+
+**Commandes disponibles :**
+
+- `python -m cli.main --help` : Affiche l'aide et la liste des commandes.
+- `python -m cli.main analyze-sfd <path_to_sfd>` : Lance l'analyse d'un fichier de spécifications fonctionnelles.
+- `python -m cli.main generate-tests <path_to_scenarios>` : Génère des tests à partir d'un fichier de scénarios.
+- `python -m cli.main run-tests <path_to_tests>` : Exécute une suite de tests Playwright.
+- `python -m cli.main full-pipeline <path_to_sfd>` : Exécute le pipeline complet : analyse SFD, génération et exécution des tests.
+
+### Lancer les Tests
+
+Pour exécuter la suite de tests du projet, utilisez `pytest` :
+
+```bash
+pytest
+```
+
+## Monitoring
+
+- **Prometheus** : `http://localhost:9090`
+- **Dash Dashboard** : `http://localhost:8050`
+
+## Contribuer
+
+Les contributions sont les bienvenues ! Veuillez suivre les étapes suivantes :
+
+1. Fork le projet.
+2. Créez une nouvelle branche (`git checkout -b feature/nouvelle-fonctionnalite`).
+3. Faites vos modifications.
+4. Assurez-vous que les tests passent (`pytest`).
+5. Committez vos changements (`git commit -am 'Ajout de la fonctionnalité X'`).
+6. Pushez vers la branche (`git push origin feature/nouvelle-fonctionnalite`).
+7. Créez une nouvelle Pull Request.

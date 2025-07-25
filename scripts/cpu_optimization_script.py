@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
-"""
-CPU Optimization Script for LoRA Adapters
-Optimizes quantization, batch size, and inference parameters for ThinkPad i5-13500H
+"""Script d'optimisation des performances CPU pour les adaptateurs LoRA.
+
+Ce script est spécifiquement conçu pour optimiser les paramètres d'inférence
+des modèles de langage (comme Qwen3 et StarCoder2) avec des adaptateurs LoRA
+sur un CPU Intel i5-13500H. Il benchmarke différentes configurations de threads,
+de taille de contexte et de batch pour trouver le meilleur compromis entre
+vitesse (tokens/s) et latence.
+
+Le script génère ensuite des `Modelfile` pour Ollama contenant les paramètres
+optimaux.
 """
 
 import os
@@ -18,35 +25,35 @@ from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
 from concurrent.futures import ProcessPoolExecutor
 
-# Add project root
+# Ajoute la racine du projet au path pour permettre les imports relatifs.
 sys.path.append(str(Path(__file__).parent.parent))
 
 import logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class CPUOptimizationConfig:
-    """Configuration optimale pour CPU Intel i5-13500H"""
-    # CPU cores configuration
-    p_cores: int = 6  # Performance cores
-    e_cores: int = 8  # Efficiency cores
+    """Configuration de base pour l'optimisation sur un CPU Intel i5-13500H."""
+    # Configuration des cœurs CPU
+    p_cores: int = 6  # Performance-cores
+    e_cores: int = 8  # Efficiency-cores
     total_threads: int = 20
     
-    # Memory settings
-    max_memory_gb: int = 28  # Laisser 4GB pour l'OS
+    # Paramètres mémoire
+    max_memory_gb: int = 28  # Laisse 4GB pour le système d'exploitation
     
-    # Quantization settings
-    quantization_bits: int = 4  # 4-bit pour Qwen3
-    quantization_type: str = "q4_K_M"  # Meilleur rapport qualité/taille
+    # Paramètres de quantification
+    quantization_bits: int = 4
+    quantization_type: str = "q4_K_M"  # Bon compromis qualité/taille
     
-    # Batch settings par modèle
+    # Configurations de batch par défaut par modèle
     batch_configs = {
         "qwen3": {
             "batch_size": 1,
             "max_seq_length": 2048,
-            "num_threads": 12,  # P-cores only
+            "num_threads": 12,  # P-cores uniquement par défaut
             "context_size": 8192
         },
         "starcoder2": {
@@ -57,27 +64,27 @@ class CPUOptimizationConfig:
         }
     }
     
-    # Inference optimization
+    # Paramètres d'inférence généraux
     inference_settings = {
         "use_mmap": True,
-        "use_mlock": False,  # False pour éviter lock mémoire
+        "use_mlock": False,  # False pour éviter de "locker" la mémoire
         "n_batch": 512,
-        "n_gpu_layers": 0,  # CPU only
+        "n_gpu_layers": 0,  # CPU uniquement
         "rope_freq_base": 1000000,
         "rope_freq_scale": 1.0
     }
 
 
 class CPUOptimizer:
-    """Optimise les paramètres CPU pour les modèles LoRA"""
+    """Optimise les paramètres d'inférence des modèles LoRA pour le CPU."""
     
     def __init__(self):
         self.config = CPUOptimizationConfig()
-        self.ollama_host = "http://localhost:11434"
+        self.ollama_host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
         self.results = {}
         
     def get_cpu_info(self) -> Dict:
-        """Collecte les informations CPU"""
+        """Collecte et retourne les informations sur le CPU et la mémoire."""
         info = {
             "cpu_count": psutil.cpu_count(logical=True),
             "cpu_cores": psutil.cpu_count(logical=False),
@@ -85,55 +92,15 @@ class CPUOptimizer:
             "memory_total": psutil.virtual_memory().total / (1024**3),
             "memory_available": psutil.virtual_memory().available / (1024**3)
         }
-        
-        # Détection P-cores vs E-cores (Intel 12th gen+)
-        try:
-            # Linux : analyse /proc/cpuinfo
-            with open('/proc/cpuinfo', 'r') as f:
-                cpuinfo = f.read()
-                # Heuristique : P-cores ont généralement une fréquence plus élevée
-                info["has_hybrid_arch"] = "Efficient" in cpuinfo or self.config.total_threads > 16
-        except:
-            info["has_hybrid_arch"] = False
-            
         return info
     
-    def optimize_thread_affinity(self, model_type: str) -> List[int]:
-        """Optimise l'affinité des threads CPU"""
-        if model_type == "qwen3":
-            # Utiliser uniquement les P-cores (0-5 physiques = 0-11 logiques)
-            return list(range(0, 12))
-        else:
-            # StarCoder2 : mix P-cores et E-cores
-            return list(range(0, 8))
-    
-    def calculate_optimal_batch_size(self, model_type: str, available_memory_gb: float) -> int:
-        """Calcule la taille de batch optimale selon la mémoire"""
-        model_memory_requirements = {
-            "qwen3": 8.0,  # GB pour 32B quantifié
-            "starcoder2": 4.0  # GB pour 15B quantifié
-        }
-        
-        base_memory = model_memory_requirements.get(model_type, 6.0)
-        overhead = 2.0  # GB pour l'overhead
-        
-        available_for_batches = available_memory_gb - base_memory - overhead
-        batch_memory = 0.5  # GB par batch estimé
-        
-        optimal_batch = max(1, int(available_for_batches / batch_memory))
-        
-        # Limites de sécurité
-        max_batch = self.config.batch_configs[model_type]["batch_size"]
-        return min(optimal_batch, max_batch)
-    
     async def benchmark_configuration(self, model_name: str, config: Dict) -> Dict:
-        """Benchmark une configuration spécifique"""
-        logger.info(f"Benchmark {model_name} avec config: {config}")
+        """Benchmark une configuration spécifique en envoyant des requêtes à Ollama."""
+        logger.info(f"Benchmark de {model_name} avec config: {config}")
         
-        # Préparer le test
         test_prompts = [
             "Analyse cette spec: formulaire login avec validation email",
-            "Génère un test Playwright pour bouton submit",
+            "Génère un test Playwright pour un bouton submit",
             "Extrais les cas limites d'un panier e-commerce"
         ]
         
@@ -141,21 +108,22 @@ class CPUOptimizer:
             "config": config,
             "latencies": [],
             "tokens_per_second": [],
-            "memory_usage": []
+            "memory_usage_gb": []
         }
         
         async with aiohttp.ClientSession() as session:
             for prompt in test_prompts:
                 start_time = time.time()
-                start_memory = psutil.virtual_memory().used / (1024**3)
+                start_memory_gb = psutil.virtual_memory().used / (1024**3)
                 
                 payload = {
                     "model": model_name,
                     "prompt": prompt,
+                    "stream": False,
                     "options": {
-                        "num_thread": config["num_threads"],
-                        "num_ctx": config["context_size"],
-                        "num_batch": config.get("n_batch", 512),
+                        "num_thread": config['num_threads'],
+                        "num_ctx": config['context_size'],
+                        "num_batch": config.get('n_batch', 512),
                         "num_predict": 256
                     }
                 }
@@ -164,71 +132,63 @@ class CPUOptimizer:
                     async with session.post(
                         f"{self.ollama_host}/api/generate",
                         json=payload,
-                        timeout=aiohttp.ClientTimeout(total=60)
+                        timeout=aiohttp.ClientTimeout(total=120) # Timeout plus long
                     ) as resp:
                         if resp.status == 200:
                             data = await resp.json()
-                            
                             latency = time.time() - start_time
-                            end_memory = psutil.virtual_memory().used / (1024**3)
+                            end_memory_gb = psutil.virtual_memory().used / (1024**3)
                             
                             eval_count = data.get("eval_count", 0)
-                            eval_duration = data.get("eval_duration", 1) / 1e9
+                            eval_duration_ns = data.get("eval_duration", 1)
+                            tps = (eval_count / (eval_duration_ns / 1e9)) if eval_duration_ns > 0 else 0
                             
                             results["latencies"].append(latency)
-                            results["tokens_per_second"].append(eval_count / eval_duration)
-                            results["memory_usage"].append(end_memory - start_memory)
+                            results["tokens_per_second"].append(tps)
+                            results["memory_usage_gb"].append(end_memory_gb - start_memory_gb)
+                        else:
+                            logger.warning(f"Erreur de benchmark (status {resp.status}) pour {model_name}")
                 
+                except asyncio.TimeoutError:
+                    logger.warning(f"Timeout lors du benchmark de {model_name} avec prompt: {prompt[:30]}...")
                 except aiohttp.ClientError as e:
-                    logger.error(f"Erreur benchmark: {e}")
+                    logger.error(f"Erreur de client AIOHTTP durant le benchmark: {e}")
         
-        # Calculer les moyennes
+        # Calcule les moyennes pour le rapport.
         results["avg_latency"] = np.mean(results["latencies"]) if results["latencies"] else 0
         results["avg_tokens_per_second"] = np.mean(results["tokens_per_second"]) if results["tokens_per_second"] else 0
-        results["avg_memory_usage"] = np.mean(results["memory_usage"]) if results["memory_usage"] else 0
+        results["avg_memory_usage_gb"] = np.mean(results["memory_usage_gb"]) if results["memory_usage_gb"] else 0
         
         return results
     
-    async def optimize_model(self, model_type: str, model_name: str) -> Dict:
-        """Optimise un modèle spécifique"""
-        logger.info(f"\n🔧 Optimisation {model_type}")
+    async def optimize_model(self, model_type: str, model_name: str) -> Optional[Dict]:
+        """Teste plusieurs configurations pour un modèle et retourne la meilleure."""
+        logger.info(f"\n🔧 Optimisation de {model_type} ({model_name})...")
         
-        cpu_info = self.get_cpu_info()
         base_config = self.config.batch_configs[model_type]
         
-        # Configurations à tester
+        # Grille de recherche pour les hyperparamètres.
         test_configs = []
-        
-        # Varier le nombre de threads
         thread_counts = [4, 8, 12, 16] if model_type == "qwen3" else [4, 6, 8]
-        
         for threads in thread_counts:
-            # Varier la taille du contexte
-            for ctx_multiplier in [0.5, 1.0, 1.5]:
-                context_size = int(base_config["context_size"] * ctx_multiplier)
-                
-                # Varier n_batch
+            for ctx_multiplier in [0.5, 1.0]:
                 for n_batch in [256, 512, 1024]:
                     config = {
                         "num_threads": threads,
-                        "context_size": context_size,
+                        "context_size": int(base_config["context_size"] * ctx_multiplier),
                         "n_batch": n_batch,
-                        "batch_size": self.calculate_optimal_batch_size(
-                            model_type, 
-                            cpu_info["memory_available"]
-                        )
                     }
                     test_configs.append(config)
         
-        # Benchmarker chaque configuration
         best_config = None
-        best_score = 0
+        best_score = -float('inf')
         
-        for config in test_configs[:5]:  # Limiter pour gagner du temps
+        # Limite le nombre de benchmarks pour un test rapide.
+        for config in test_configs[:5]:
             result = await self.benchmark_configuration(model_name, config)
             
-            # Score composite : tokens/s - (latency * 10)
-            score = result["avg_tokens_per_second"] - (result["avg_latency"] * 10)
+            # Score composite: tokens/s pondérés, pénalisé par la latence.
+            score = result["avg_tokens_per_second"] - (result["avg_latency"] * 5)
             
             if score > best_score:
                 best_score = score
@@ -237,30 +197,29 @@ class CPUOptimizer:
                     "performance": {
                         "tokens_per_second": result["avg_tokens_per_second"],
                         "latency": result["avg_latency"],
-                        "memory_usage": result["avg_memory_usage"]
+                        "memory_usage_gb": result["avg_memory_usage_gb"]
                     }
                 }
         
         return best_config
     
     def generate_ollama_modelfile(self, model_type: str, optimal_config: Dict) -> str:
-        """Génère un Modelfile optimisé pour Ollama"""
+        """Génère un contenu de `Modelfile` optimisé pour Ollama."""
         base_models = {
             "qwen3": "qwen3:32b-q4_K_M",
             "starcoder2": "starcoder2:15b-q8_0"
         }
-        
         adapter_paths = {
-            "qwen3": "data/models/lora_adapters/qwen3-sfd-analyzer-lora",
-            "starcoder2": "data/models/lora_adapters/starcoder2-playwright-lora"
+            "qwen3": "./data/models/lora_adapters/qwen3-sfd-analyzer-lora",
+            "starcoder2": "./data/models/lora_adapters/starcoder2-playwright-lora"
         }
         
         config = optimal_config["config"]
         
-        modelfile = f"""FROM {base_models[model_type]}
+        modelfile_content = f"""FROM {base_models[model_type]}
 ADAPTER {adapter_paths[model_type]}
 
-# Optimisations CPU Intel i5-13500H
+# --- Paramètres optimisés pour CPU Intel i5-13500H ---
 PARAMETER num_thread {config['num_threads']}
 PARAMETER num_ctx {config['context_size']}
 PARAMETER num_batch {config['n_batch']}
@@ -270,7 +229,7 @@ PARAMETER num_gpu 0
 PARAMETER use_mmap true
 PARAMETER use_mlock false
 
-# Paramètres d'inférence
+# Paramètres d'inférence standards
 PARAMETER temperature 0.7
 PARAMETER top_p 0.9
 PARAMETER top_k 40
@@ -278,77 +237,69 @@ PARAMETER repeat_penalty 1.1
 PARAMETER stop "<|im_end|>"
 PARAMETER stop "<|im_start|>"
 
-# System prompt optimisé
-SYSTEM Tu es un expert optimisé pour CPU avec adaptateur LoRA spécialisé.
+SYSTEM Tu es un expert en génération de code et analyse de spécifications, optimisé pour tourner sur CPU avec un adaptateur LoRA.
 """
-        
-        return modelfile
+        return modelfile_content
     
     async def run_optimization(self):
-        """Lance l'optimisation complète"""
-        logger.info("🚀 Démarrage optimisation CPU pour adapters LoRA")
+        """Lance le processus d'optimisation complet."""
+        logger.info("🚀 Démarrage de l'optimisation CPU pour les adaptateurs LoRA")
         
-        # Info système
         cpu_info = self.get_cpu_info()
-        logger.info(f"CPU: {cpu_info['cpu_cores']} cores, {cpu_info['cpu_count']} threads")
+        logger.info(f"CPU: {cpu_info['cpu_cores']} cœurs, {cpu_info['cpu_count']} threads")
         logger.info(f"RAM: {cpu_info['memory_total']:.1f}GB total, {cpu_info['memory_available']:.1f}GB disponible")
         
-        # Optimiser chaque modèle
         models_to_optimize = [
             ("qwen3", "qwen3-sfd-analyzer-lora"),
             ("starcoder2", "starcoder2-playwright-lora")
         ]
         
         for model_type, model_name in models_to_optimize:
-            optimal = await self.optimize_model(model_type, model_name)
-            self.results[model_type] = optimal
+            optimal_config = await self.optimize_model(model_type, model_name)
+            if not optimal_config:
+                logger.error(f"Échec de l'optimisation pour {model_type}. Passage au suivant.")
+                continue
+
+            self.results[model_type] = optimal_config
+            modelfile_str = self.generate_ollama_modelfile(model_type, optimal_config)
             
-            # Générer le Modelfile optimisé
-            modelfile = self.generate_ollama_modelfile(model_type, optimal)
-            
-            # Sauvegarder
-            output_path = Path(f"configs/optimized_{model_type}_modelfile")
+            output_path = Path(f"configs/ollama_optimized_{model_type}.yaml")
             output_path.parent.mkdir(exist_ok=True)
             
             try:
-                with open(output_path, "w") as f:
-                    f.write(modelfile)
+                output_path.write_text(modelfile_str, encoding='utf-8')
+                logger.info(f"✅ Modelfile optimisé sauvegardé : {output_path}")
             except (IOError, OSError) as e:
-                logger.error(f"Error writing Modelfile to {output_path}: {e}")
-            
-            logger.info(f"✅ Modelfile optimisé sauvé: {output_path}")
+                logger.error(f"Erreur lors de l'écriture du Modelfile sur {output_path}: {e}")
         
-        # Rapport final
         self._print_optimization_report()
     
     def _print_optimization_report(self):
-        """Affiche le rapport d'optimisation"""
+        """Affiche un rapport final avec les résultats de l'optimisation."""
         print("\n" + "="*80)
-        logger.info("📊 RAPPORT D'OPTIMISATION CPU")
+        logger.info("📊 RAPPORT FINAL D'OPTIMISATION CPU")
         print("="*80)
         
         for model_type, result in self.results.items():
-            logger.info(f"\n🔸 {model_type.upper()}")
-            logger.info(f"   Configuration optimale:")
-            
+            logger.info(f"\n🔸 MODÈLE : {model_type.upper()}")
             config = result["config"]
             perf = result["performance"]
             
-            logger.info(f"   - Threads: {config['num_threads']}")
-            logger.info(f"   - Contexte: {config['context_size']} tokens")
-            logger.info(f"   - Batch interne: {config['n_batch']}")
-            logger.info(f"   - Batch size: {config['batch_size']}")
+            logger.info(f"   Configuration Optimale:")
+            logger.info(f"   - Threads CPU       : {config['num_threads']}")
+            logger.info(f"   - Taille du contexte: {config['context_size']} tokens")
+            logger.info(f"   - Batch interne (n_batch): {config['n_batch']}")
             
-            logger.info(f"\n   Performance:")
-            logger.info(f"   - Vitesse: {perf['tokens_per_second']:.1f} tokens/s")
-            logger.info(f"   - Latence: {perf['latency']:.2f}s")
-            logger.info(f"   - RAM utilisée: {perf['memory_usage']:.1f}GB")
+            logger.info(f"\n   Performance Estimée:")
+            logger.info(f"   - Vitesse (tokens/s): {perf['tokens_per_second']:.1f}")
+            logger.info(f"   - Latence par requête: {perf['latency']:.2f}s")
+            logger.info(f"   - Utilisation RAM   : {perf['memory_usage_gb']:.2f}GB")
         
         logger.info("\n💡 Recommandations:")
-        logger.info("1. Utiliser les Modelfiles optimisés dans configs/")
-        logger.info("2. Fermer les applications gourmandes en RAM")
-        logger.info("3. Désactiver le turbo boost si surchauffe")
-        logger.info("4. Monitorer avec htop pendant l'inférence")
+        logger.info("1. Utilisez les Modelfiles générés dans `configs/` pour créer vos modèles Ollama.")
+        logger.info("   (ex: `ollama create mon-qwen3-optimise -f configs/ollama_optimized_qwen3.yaml`)")
+        logger.info("2. Assurez-vous de fermer les applications gourmandes en RAM avant l'inférence.")
+        logger.info("3. Surveillez la température du CPU avec `htop` ou un outil similaire.")
 
 
 async def main():

@@ -105,7 +105,7 @@ Dans le répertoire racine du projet, exécutez :
 docker-compose up -d
 ```
 
-Cette commande va construire (si nécessaire) et démarrer les conteneurs pour les services Redis, OCR, ALM, Excel, Playwright et Auth.
+Cette commande va construire (si nécessaire) et démarrer les conteneurs pour les services Redis, OCR, ALM, Excel, Playwright, Auth et Dash.
 
 ### 5. Vérification de l'Installation
 
@@ -123,67 +123,21 @@ curl http://localhost:8005/health # Service Auth
 # Pour le service Excel: http://localhost:8003/docs
 # Pour le service Auth: http://localhost:8005/docs
 
+# Accéder au Dashboard
+# http://localhost:8050
+
 # Exécuter les tests du projet
 pytest
 ```
 
 ### 6. Utilisation de Base
 
-Une fois tous les services en cours d'exécution, vous pouvez interagir avec l'orchestrateur. Voici un exemple simple d'utilisation de l'orchestrateur pour traiter une SFD :
-
-```python
-import asyncio
-from src.orchestrator import TestAutomationOrchestratorV2
-from pathlib import Path
-
-async def run_orchestrator():
-    orchestrator = TestAutomationOrchestratorV2()
-    await orchestrator.initialize()
-
-    try:
-        # Créez un fichier SFD temporaire pour le test
-        sfd_content = """
-        Spécification Fonctionnelle: Module de Connexion
-
-        1. Scénario: Connexion réussie
-        - Étapes: Entrer un email et un mot de passe valides, cliquer sur 'Se connecter'.
-        - Résultat attendu: Redirection vers le tableau de bord.
-
-        2. Scénario: Mot de passe incorrect
-        - Étapes: Entrer un email valide et un mot de passe incorrect, cliquer sur 'Se connecter'.
-        - Résultat attendu: Message d'erreur 'Mot de passe incorrect'.
-        """
-        temp_sfd_path = Path("temp_sfd.txt")
-        temp_sfd_path.write_text(sfd_content)
-
-        print("Lancement du pipeline d'automatisation...")
-        results = await orchestrator.process_sfd_to_tests(str(temp_sfd_path))
-
-        print("\nRésultats du pipeline:")
-        print(results)
-
-    finally:
-        await orchestrator.close()
-        # Nettoyer le fichier temporaire
-        if temp_sfd_path.exists():
-            temp_sfd_path.unlink()
-
-if __name__ == "__main__":
-    asyncio.run(run_orchestrator())
-```
-
-Copiez ce code dans un fichier Python (par exemple, `run_pipeline.py`) à la racine de votre projet et exécutez-le :
-
-```bash
-python run_pipeline.py
-```
-
-Ceci lancera le processus d'analyse de la SFD, la génération des tests, et leur exécution (simulée pour certains services). Les résultats seront affichés dans la console.
+Une fois tous les services en cours d'exécution, vous pouvez interagir avec l'orchestrateur via le CLI. Voir le `README.md` pour plus de détails sur les commandes disponibles.
 
 ### 7. Troubleshooting
 
-- **Problèmes de port** : Si un service Docker ne démarre pas, vérifiez que les ports (ex: 8001, 8002, 8003, 8004, 8005, 11434, 6379) ne sont pas déjà utilisés par d'autres applications sur votre système.
-- **Ollama** : Assurez-vous que le modèle `qwen3-sfd-analyzer` et `starcoder2-playwright` sont bien téléchargés et disponibles dans Ollama. Vous pouvez les télécharger manuellement si nécessaire (`ollama pull qwen3-sfd-analyzer`, `ollama pull starcoder2-playwright`).
+- **Problèmes de port** : Si un service Docker ne démarre pas, vérifiez que les ports (ex: 8001, 8002, 8003, 8004, 8005, 8050, 11434, 6379) ne sont pas déjà utilisés par d'autres applications sur votre système.
+- **Ollama** : Assurez-vous que les modèles `qwen3-sfd-analyzer` et `starcoder2-playwright` sont bien téléchargés et disponibles dans Ollama. Vous pouvez les télécharger manuellement si nécessaire (`ollama pull qwen3-sfd-analyzer`, `ollama pull starcoder2-playwright`).
 - **Dépendances Python** : Si vous rencontrez des erreurs d'importation, assurez-vous que votre environnement virtuel est activé et que toutes les dépendances de `requirements.txt` sont installées.
 - **Base de données d'authentification**: Le service d'authentification utilise une base de données SQLite qui sera créée dans un volume Docker. Si vous avez besoin de la réinitialiser, vous pouvez supprimer le volume avec `docker volume rm altiora_auth_db`.
 

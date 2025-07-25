@@ -1,25 +1,34 @@
+# src/modules/psychodesign/personality_quiz.py
+"""Module pour le quiz de personnalisation de l'IA Altiora.
+
+Ce module permet de définir le profil initial de la personnalité de l'IA
+en posant une série de questions à l'utilisateur. Il collecte des réponses
+textuelles et peut potentiellement analyser des caractéristiques vocales
+pour affiner les traits de personnalité de l'assistant QA.
 """
-Quiz de personnalisation pour Altiora - Assistant QA Personnel
-- Définit le profil QA complet: analyseur, générateur, superviseur
-- """
 
 import json
+import logging
 from dataclasses import dataclass, asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 
+# Importation conditionnelle de speech_recognition.
 try:
     import speech_recognition as sr
-
     HAS_SPEECH_RECOGNITION = True
 except ImportError:
     sr = None
     HAS_SPEECH_RECOGNITION = False
+    logging.warning("La bibliothèque 'speech_recognition' n'est pas installée. La calibration vocale sera désactivée.")
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
 class QuizResponse:
+    """Représente une réponse individuelle à une question du quiz."""
     question_id: str
     response: Any
     confidence: float
@@ -29,41 +38,51 @@ class QuizResponse:
 
 @dataclass
 class PersonalityProfile:
+    """Représente le profil de personnalité complet de l'IA pour un utilisateur donné."""
     user_id: str
-    traits: Dict[str, float]
-    preferences: Dict[str, Any]
-    vocal_profile: Dict[str, Any]
-    behavioral_patterns: Dict[str, Any]
-    quiz_metadata: Dict[str, Any]
+    traits: Dict[str, float] # Traits de personnalité (ex: formalité, empathie).
+    preferences: Dict[str, Any] # Préférences de communication (ex: vouvoiement, expressions).
+    vocal_profile: Dict[str, Any] # Caractéristiques vocales (si calibration effectuée).
+    behavioral_patterns: Dict[str, Any] # Modèles comportementaux identifiés.
+    quiz_metadata: Dict[str, Any] # Métadonnées du quiz (date de complétion, etc.).
 
 
 class PersonalityQuiz:
-    """Système de quiz de personnalisation avancé"""
+    """Système de quiz de personnalisation avancé pour définir le profil de l'IA."""
 
     def __init__(self, user_id: str):
+        """Initialise le quiz de personnalité."
+
+        Args:
+            user_id: L'identifiant de l'utilisateur qui passe le quiz.
+        """
         self.user_id = user_id
         self.responses: List[QuizResponse] = []
         self.vocal_samples: List[Dict[str, Any]] = []
 
-        self.quiz_path = Path("quiz_data")
+        self.quiz_path = Path("quiz_data") # Répertoire pour sauvegarder les données du quiz.
         self.quiz_path.mkdir(exist_ok=True)
 
-        # Initialisation conditionnelle de speech recognition
-        if sr:
+        # Initialisation conditionnelle de speech recognition.
+        self.recognizer: Optional[sr.Recognizer] = None
+        self.microphone: Optional[sr.Microphone] = None
+        if HAS_SPEECH_RECOGNITION:
             self.recognizer = sr.Recognizer()
             self.microphone = sr.Microphone()
-        else:
-            self.recognizer = None
-            self.microphone = None
 
         self.questions = self._load_questions()
 
     # ------------------------------------------------------------------
-    # Questionnaire
+    # Questionnaire (définition des questions)
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _load_questions() -> List[Dict[str, Any]]:
+    def _load_questions() -> List[Dict[str, Any]:
+        """Charge la liste des questions du quiz."
+
+        Returns:
+            Une liste de dictionnaires, chaque dictionnaire représentant une question.
+        """
         return [
             {
                 "id": "comm_1",
@@ -130,24 +149,37 @@ class PersonalityQuiz:
         ]
 
     async def start_quiz(self) -> PersonalityProfile:
+        """Démarre le processus du quiz de personnalisation."
+
+        Parcourt toutes les questions, collecte les réponses et génère le profil.
+
+        Returns:
+            L'objet `PersonalityProfile` généré.
+        """
         logger.info(f"\nQuiz de personnalisation Altiora pour {self.user_id}")
         print("=" * 60)
 
         for question in self.questions:
             await self._ask_question(question)
 
-        await self._analyze_vocal_patterns()
+        await self._analyze_vocal_patterns() # Analyse les patterns vocaux si des échantillons ont été collectés.
         profile = self._generate_profile()
         await self._save_profile(profile)
         return profile
 
     # ------------------------------------------------------------------
-    # Question handlers
+    # Gestionnaires de questions
     # ------------------------------------------------------------------
 
     async def _ask_question(self, question: Dict[str, Any]) -> None:
+        """Pose une question à l'utilisateur et collecte sa réponse."
+
+        Args:
+            question: Le dictionnaire représentant la question à poser.
+        """
         logger.info(f"\n{question['question']}")
 
+        response: Dict[str, Any]
         if question["type"] == "choice":
             response = await self._handle_choice_question(question)
         elif question["type"] == "scale":
@@ -169,67 +201,95 @@ class PersonalityQuiz:
 
     @staticmethod
     async def _handle_choice_question(question: Dict[str, Any]) -> Dict[str, Any]:
+        """Gère les questions à choix multiples."""
         for i, opt in enumerate(question["options"], 1):
             logger.info(f"  {i}. {opt['text']}")
         while True:
             try:
-                choice = int(input("Votre choix (1-{}): ".format(len(question["options"]))))
+                choice = int(input("Votre choix (1-{}): ".format(len(question["options"]))).strip())
                 if 1 <= choice <= len(question["options"]):
                     selected = question["options"][choice - 1]
-                    return {"value": selected.get("value", selected["weight"])}
+                    return {"value": selected.get("value", selected["weight"])} # Retourne la valeur ou le poids.
+                else:
+                    logger.warning("Choix invalide. Veuillez entrer un nombre dans la plage indiquée.")
             except ValueError:
-                logger.info("Choix invalide")
+                logger.warning("Entrée invalide. Veuillez entrer un nombre.")
 
     @staticmethod
     async def _handle_scale_question(_question: Dict[str, Any]) -> Dict[str, Any]:
-        val = float(input("Entrez une valeur entre 0 et 1 : "))
-        return {"value": max(0.0, min(1.0, val))}
+        """Gère les questions avec une échelle de valeur (ex: 0 à 1)."""
+        while True:
+            try:
+                val_str = input("Entrez une valeur entre 0 et 1 : ").strip()
+                val = float(val_str)
+                if 0.0 <= val <= 1.0:
+                    return {"value": val}
+                else:
+                    logger.warning("Valeur hors de la plage. Veuillez entrer un nombre entre 0 et 1.")
+            except ValueError:
+                logger.warning("Entrée invalide. Veuillez entrer un nombre.")
 
     @staticmethod
     async def _handle_text_question(_question: Dict[str, Any]) -> Dict[str, Any]:
-        text = input("Réponse : ")
+        """Gère les questions nécessitant une réponse textuelle libre."""
+        text = input("Réponse : ").strip()
         return {"value": text}
 
     async def _handle_calibration_question(self, question: Dict[str, Any]) -> Dict[str, Any]:
-        """Gère les questions de calibration vocale"""
+        """Gère les questions de calibration vocale en utilisant `speech_recognition`."""
         if not self.recognizer or not self.microphone:
-            logger.info("Module speech_recognition non disponible, skip calibration vocale")
+            logger.info("Module speech_recognition non disponible. Calibration vocale ignorée.")
             return {"value": "skipped", "confidence": 0.0, "vocal_features": {}}
 
-        logger.info("\nCalibration vocale - Parlez après le signal")
+        logger.info("\nCalibration vocale - Lisez la phrase après le signal. Appuyez sur Entrée quand prêt.")
         input("Appuyez sur Entrée quand prêt...")
 
         try:
             with self.microphone as source:
+                logger.info("Réglage du bruit ambiant...")
                 self.recognizer.adjust_for_ambient_noise(source)
-                audio = self.recognizer.listen(source, timeout=5)
+                logger.info("Parlez maintenant...")
+                audio = self.recognizer.listen(source, timeout=5) # Écoute pendant 5 secondes.
 
-            text = self.recognizer.recognize_google(audio, language="fr-FR")
-            features = await self._extract_vocal_features(audio)
+            text = self.recognizer.recognize_google(audio, language="fr-FR") # Utilise Google Speech Recognition.
+            features = await self._extract_vocal_features(audio) # Extrait les caractéristiques vocales.
             self.vocal_samples.append({"text": text, "features": features, "purpose": question["purpose"]})
+            logger.info(f"Transcription : \"{text}\"")
             return {"value": text, "confidence": 1.0, "vocal_features": features}
         except sr.UnknownValueError:
-            logger.info("Je n'ai pas compris, réessayez...")
-            return await self._handle_calibration_question(question)
+            logger.warning("Impossible de comprendre l'audio. Veuillez réessayer.")
+            return await self._handle_calibration_question(question) # Demande de réessayer.
         except Exception as e:
-            logger.info(f"Erreur lors de la calibration vocale: {e}")
+            logger.error(f"Erreur lors de la calibration vocale : {e}")
             return {"value": "error", "confidence": 0.0, "vocal_features": {}}
 
     @staticmethod
-    async def _extract_vocal_features(_audio) -> Dict[str, float]:
-        """Extrait les caractéristiques vocales (stub pour l'instant)"""
+    async def _extract_vocal_features(_audio: Any) -> Dict[str, float]:
+        """Extrait les caractéristiques vocales à partir d'un échantillon audio (stub pour l'instant)."
+
+        Args:
+            _audio: L'objet audio enregistré.
+
+        Returns:
+            Un dictionnaire de caractéristiques vocales (ex: pitch, speed, volume).
+        """
+        # TODO: Implémenter une analyse vocale réelle pour extraire des caractéristiques.
         return {"pitch": 220.0, "speed": 150.0, "volume": 0.7, "stress_indicators": 0.2}
 
     # ------------------------------------------------------------------
-    # Profile generation
+    # Génération du profil de personnalité
     # ------------------------------------------------------------------
 
     async def _analyze_vocal_patterns(self) -> None:
-        """Analyse les patterns vocaux collectés"""
-        pass  # Implementation future
+        """Analyse les patterns vocaux collectés pour affiner le profil de personnalité (stub)."
+
+        Cette méthode serait utilisée pour intégrer les données vocales dans le calcul des traits.
+        """
+        # TODO: Implémenter l'analyse des patterns vocaux.
+        pass
 
     def _generate_profile(self) -> PersonalityProfile:
-        """Génère le profil de personnalité basé sur les réponses"""
+        """Génère le profil de personnalité complet basé sur les réponses du quiz et l'analyse vocale."""
         return PersonalityProfile(
             user_id=self.user_id,
             traits=self._calculate_traits(),
@@ -244,7 +304,8 @@ class PersonalityQuiz:
         )
 
     def _calculate_traits(self) -> Dict[str, float]:
-        """Calcule les traits de personnalité basés sur les réponses"""
+        """Calcule les traits de personnalité de l'IA basés sur les réponses du quiz."""
+        # Valeurs par défaut des traits.
         traits = {
             "formalite": 0.6,
             "empathie": 0.7,
@@ -255,12 +316,11 @@ class PersonalityQuiz:
             "technical_level": 0.7
         }
 
-        # Analyse des réponses pour ajuster les traits
+        # Ajuste les traits en fonction des réponses du quiz.
         for response in self.responses:
             question_id = response.question_id
             value = response.response
 
-            # Ajustement basé sur les réponses
             if question_id == "comm_1":
                 if value == "tu":
                     traits["formalite"] = 0.2
@@ -271,42 +331,46 @@ class PersonalityQuiz:
 
             elif question_id == "comm_2" and isinstance(value, (int, float)):
                 traits["verbosite"] = float(value)
+            # TODO: Ajouter la logique pour d'autres questions et traits.
 
         return traits
 
     def _analyze_preferences(self) -> Dict[str, Any]:
-        """Analyse les préférences utilisateur"""
+        """Analyse les préférences utilisateur basées sur les réponses du quiz."""
         preferences = {
             "vouvoiement": True,
             "expressions": ["Parfait!", "Intéressant", "Voyons voir..."],
             "voice_settings": {"pitch": 1.0, "speed": 1.1, "intonation": "dynamique"}
         }
 
-        # Ajuster selon les réponses
         for response in self.responses:
             if response.question_id == "comm_1" and response.response == "tu":
                 preferences["vouvoiement"] = False
                 preferences["expressions"] = ["Cool!", "OK", "Génial!"]
+            # TODO: Ajouter la logique pour d'autres préférences.
 
         return preferences
 
     def _create_vocal_profile(self) -> Dict[str, Any]:
-        """Crée le profil vocal basé sur les échantillons"""
+        """Crée le profil vocal basé sur les échantillons collectés."""
         if not self.vocal_samples:
             return {"status": "no_samples", "baseline": None}
 
         return {
             "samples": len(self.vocal_samples),
             "baseline": self.vocal_samples[0] if self.vocal_samples else None,
-            "variations": self._analyze_vocal_variations()
+            "variations": self._analyze_vocal_variations() # Analyse les variations vocales.
         }
 
     def _analyze_vocal_variations(self) -> Dict[str, float]:
-        """Analyse les variations vocales entre les échantillons"""
+        """Analyse les variations vocales entre les échantillons (stub)."
+
+        Cette méthode calculerait des métriques comme la variance du pitch, de la vitesse, etc.
+        """
         if len(self.vocal_samples) < 2:
             return {}
 
-        # Analyse basique des variations
+        # TODO: Implémenter une analyse réelle des variations vocales.
         variations = {
             "pitch_variance": 0.1,
             "speed_variance": 0.05,
@@ -315,7 +379,11 @@ class PersonalityQuiz:
         return variations
 
     def _identify_patterns(self) -> Dict[str, Any]:
-        """Identifie les patterns comportementaux"""
+        """Identifie les patterns comportementaux de l'utilisateur (stub)."
+
+        Cette méthode analyserait les réponses pour déduire des habitudes ou préférences.
+        """
+        # TODO: Implémenter l'identification des patterns comportementaux.
         patterns = {
             "response_time_avg": sum(r.response_time for r in self.responses) / len(self.responses) if self.responses else 0,
             "confidence_avg": sum(r.confidence for r in self.responses) / len(self.responses) if self.responses else 0,
@@ -324,44 +392,54 @@ class PersonalityQuiz:
         return patterns
 
     # ------------------------------------------------------------------
-    # Persistence
+    # Persistance
     # ------------------------------------------------------------------
 
     async def _save_profile(self, profile: PersonalityProfile) -> None:
-        """Sauvegarde le profil de personnalité"""
+        """Sauvegarde le profil de personnalité généré dans un fichier JSON."
+
+        Args:
+            profile: L'objet `PersonalityProfile` à sauvegarder.
+        """
         try:
             self.quiz_path.mkdir(parents=True, exist_ok=True)
             profile_path = self.quiz_path / f"{self.user_id}_profile.json"
 
             with open(profile_path, "w", encoding="utf-8") as f:
+                # `default=str` est utilisé pour sérialiser les objets `datetime` en chaînes.
                 json.dump(asdict(profile), f, indent=2, ensure_ascii=False, default=str)
 
-            logger.info(f"\n✅ Profil sauvegardé: {profile_path}")
+            logger.info(f"\n✅ Profil de personnalité sauvegardé : {profile_path}")
         except (IOError, OSError) as e:
-            logger.info(f"\n❌ Erreur lors de la sauvegarde du profil: {e}")
+            logger.error(f"\n❌ Erreur lors de la sauvegarde du profil : {e}")
 
     # ------------------------------------------------------------------
-    # Helpers
+    # Assistants
     # ------------------------------------------------------------------
 
     def get_progress(self) -> Dict[str, Any]:
-        """Retourne la progression du quiz"""
+        """Retourne la progression actuelle du quiz."
+
+        Returns:
+            Un dictionnaire contenant le nombre de questions complétées, le total,
+            le pourcentage et la section courante.
+        """
         return {
             "completed": len(self.responses),
             "total": len(self.questions),
-            "percentage": (len(self.responses) / len(self.questions)) * 100.0,
+            "percentage": (len(self.responses) / len(self.questions)) * 100.0 if len(self.questions) > 0 else 0.0,
             "current_section": self._get_current_section()
         }
 
     def _get_current_section(self) -> str:
-        """Identifie la section courante du quiz"""
+        """Identifie la section courante du quiz basée sur la progression."""
         if not self.responses:
             return "Général"
 
         if len(self.responses) >= len(self.questions):
             return "Terminé"
 
-        current = self.questions[len(self.responses)]
+        current_question = self.questions[len(self.responses)]
         section_map = {
             "comm": "Communication",
             "work": "Style de travail",
@@ -371,22 +449,30 @@ class PersonalityQuiz:
             "vocal": "Calibration vocale",
             "scenario": "Scénarios pratiques"
         }
-        return section_map.get(current["id"].split("_")[0], "Général")
+        # Extrait le préfixe de l'ID de la question (ex: 'comm' de 'comm_1').
+        return section_map.get(current_question["id"].split("_")[0], "Général")
 
 
 class QuizReporter:
-    """Génère des rapports de personnalisation"""
+    """Génère des rapports textuels et des résumés des profils de personnalité."""
 
     @staticmethod
     def generate_summary(profile: PersonalityProfile) -> str:
-        """Génère un résumé du profil de personnalité"""
+        """Génère un résumé textuel concis du profil de personnalité."
+
+        Args:
+            profile: L'objet `PersonalityProfile` à résumer.
+
+        Returns:
+            Une chaîne de caractères formatée avec les traits et préférences clés.
+        """
         traits = profile.traits
         prefs = profile.preferences
 
-        return f"""
-Rapport de Personnalisation Altiora
+        summary = f"""
+--- Rapport de Personnalisation Altiora ---
 Utilisateur: {profile.user_id}
-Date: {profile.quiz_metadata['completed_at']}
+Date de complétion: {profile.quiz_metadata['completed_at']}
 
 Traits principaux:
 - Formalité: {traits['formalite']:.0%}
@@ -394,6 +480,8 @@ Traits principaux:
 - Humour: {traits['humor']:.0%}
 - Proactivité: {traits['proactivite']:.0%}
 - Verbosité: {traits['verbosite']:.0%}
+- Confirmation: {traits['confirmation']:.0%}
+- Niveau technique: {traits['technical_level']:.0%}
 
 Préférences:
 - Vouvoiement: {'Oui' if prefs['vouvoiement'] else 'Non'}
@@ -401,21 +489,26 @@ Préférences:
 
 Profil vocal:
 - Échantillons collectés: {profile.vocal_profile.get('samples', 0)}
-- Statut: {profile.vocal_profile.get('status', 'Complet')}
+- Statut: {profile.vocal_profile.get('status', 'Non calibré' if not profile.vocal_profile.get('samples') else 'Calibré')}
 """
+        return summary
 
 
 # ------------------------------------------------------------------
-# Quick test
+# Démonstration (exemple d'utilisation)
 # ------------------------------------------------------------------
 if __name__ == "__main__":
     import asyncio
+    import logging
 
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
     async def run_demo():
         quiz = PersonalityQuiz("demo_user")
         profile = await quiz.start_quiz()
         print(QuizReporter.generate_summary(profile))
 
+        # Nettoyage des fichiers générés par la démo.
+        quiz.quiz_path.unlink(missing_ok=True)
 
     asyncio.run(run_demo())

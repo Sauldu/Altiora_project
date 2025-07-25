@@ -85,6 +85,13 @@ Ce document décrit toutes les variables d'environnement utilisées dans le proj
 | `PLAYWRIGHT_SCREENSHOT_ON_FAILURE` | Screenshots sur échec | `true`, `false` | `true` | ❌ |
 | `PLAYWRIGHT_VIDEO_ON_FAILURE` | Vidéos sur échec | `true`, `false` | `true` | ❌ |
 
+### Service Dash
+
+| Variable | Description | Valeurs | Défaut | Requis |
+|----------|-------------|---------|---------|--------|
+| `DASH_SERVICE_HOST` | Hôte du service Dash | Nom d'hôte/IP | `localhost` | ✅ |
+| `DASH_SERVICE_PORT` | Port du service Dash | 1-65535 | `8050` | ✅ |
+
 ## Sécurité
 
 | Variable | Description | Valeurs | Défaut | Requis |

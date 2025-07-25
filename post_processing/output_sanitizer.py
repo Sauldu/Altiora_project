@@ -1,10 +1,11 @@
-# src/post_processing/output_sanitizer.py
-"""
-Clean and sanitise raw LLM outputs.
+# post_processing/output_sanitizer.py
+"""Module pour nettoyer et assainir les sorties brutes des modèles de langage (LLM).
 
-- Removes markdown code blocks (```python ... ```, ``` ... ```).
-- Masks PII using PrivacyPolicy.
-- Strips debug statements (print, logging.*).
+Ce module est essentiel pour normaliser les réponses des LLM avant qu'elles ne soient
+utilisées par d'autres parties du système. Il effectue plusieurs opérations clés :
+- Supprime les blocs de code Markdown (ex: ```python ... ```).
+- Masque les informations personnelles identifiables (PII) en utilisant `PrivacyPolicy`.
+- Supprime les instructions de débogage (comme `print()` et `logging.*`).
 """
 
 import re
@@ -12,18 +13,27 @@ import re
 from policies.privacy_policy import PrivacyPolicy
 
 # ------------------------------------------------------------------
-# Constants
+# Constantes et Expressions Régulières
 # ------------------------------------------------------------------
+
+# Trouve et extrait le contenu des blocs de code Markdown.
 CODE_BLOCK_RE = re.compile(r"^```(?:python)?\s*\n(.*?)\n```\s*$", re.DOTALL)
-INTRO_RE = re.compile(r"^(?i)(voici|bien sûr, voici) le code.*?:\n", re.MULTILINE)
-PRINT_RE = re.compile(r"^\s*print\(.*?\)\s*$", re.MULTILINE)
-LOG_RE = re.compile(r"^\s*logging\.(?:info|debug|warning)\(.*?\)\s*$", re.MULTILINE)
+
+# Supprime les phrases d'introduction courantes générées par les LLM.
+INTRO_RE = re.compile(r"^(?i)(voici|bien sûr, voici) le code.*?\n", re.MULTILINE)
+
+# Supprime les appels à `print()`.
+PRINT_RE = re.compile(r"^\s*print\(.*\)\s*$", re.MULTILINE)
+
+# Supprime les appels de logging de bas niveau.
+LOG_RE = re.compile(r"^\s*logging\.(?:info|debug|warning)\(.*\)\s*$", re.MULTILINE)
 
 
 class OutputSanitizer:
-    """Fast, zero-config cleaner for text & code outputs."""
+    """Nettoyeur rapide et sans configuration pour les sorties de texte et de code."""
 
     def __init__(self) -> None:
+        """Initialise le nettoyeur avec une instance de PrivacyPolicy."""
         self.privacy = PrivacyPolicy()
 
     def sanitize(
@@ -32,45 +42,60 @@ class OutputSanitizer:
             *,
             remove_debug: bool = True,
     ) -> str:
-        """
-        Clean text or code.
+        """Nettoie et assainit une chaîne de caractères brute.
 
         Args:
-            text: Raw string.
-            remove_debug: Strip print/logging statements.
+            text: La chaîne de caractères brute à nettoyer.
+            remove_debug: Si True, supprime les instructions de débogage (print, logging).
 
         Returns:
-            Cleaned & PII-masked string.
+            La chaîne de caractères nettoyée et avec les PII masquées.
         """
-        # 1. Strip markdown wrappers
+        # 1. Supprime les wrappers Markdown et les introductions.
         text = CODE_BLOCK_RE.sub(r"\1", text.strip())
         text = INTRO_RE.sub("", text)
 
-        # 2. Remove debug statements (only for code-like blocks)
+        # 2. Supprime les instructions de débogage si l'option est activée.
         if remove_debug:
             text = PRINT_RE.sub("", text)
             text = LOG_RE.sub("", text)
 
-        # 3. Mask PII
+        # 3. Masque les PII en utilisant la politique de confidentialité.
         privacy_report = self.privacy.scan_and_mask(text)
+        
+        # Retourne le texte masqué et nettoyé des espaces superflus.
         return privacy_report.text.strip()
 
 
 # ------------------------------------------------------------------
-# Quick self-test
+# Auto-test rapide
 # ------------------------------------------------------------------
 if __name__ == "__main__":
     sanitizer = OutputSanitizer()
 
-    raw = '''
-Bien sûr, voici le code :
+    raw_text = '''
+Bien sûr, voici le code que vous avez demandé :
 ```python
 import os
-logger.info("debug")
-logging.info("PII: test@example.com")
+
+# Ceci est un commentaire de test
+print("Début du script")
+logging.info(f"Email de contact : test@example.com")
+# Fin du script
+```
     '''
-    cleaned = sanitizer.sanitize(raw, remove_debug=True)
-    print("--- Original ---\n", raw, "\n--- Clean ---\n", cleaned)
-    assert "```" not in cleaned
-    assert "debug" not in cleaned
-    assert "test@****.com" in cleaned
+    cleaned_text = sanitizer.sanitize(raw_text, remove_debug=True)
+    
+    print("--- Texte Original ---")
+    print(raw_text)
+    print("\n--- Texte Nettoyé ---")
+    print(cleaned_text)
+
+    # Vérifications pour le test
+    assert "```" not in cleaned_text
+    assert "Bien sûr" not in cleaned_text
+    assert "print(" not in cleaned_text
+    assert "logging.info" not in cleaned_text
+    assert "test@****.com" in cleaned_text
+    assert "# Ceci est un commentaire de test" in cleaned_text
+    print("\n✅ Les tests de nettoyage ont réussi.")
