@@ -155,19 +155,19 @@ async def main():
     bad_syntax_code = "import os\nprint(os.getcwd("
     bad_style_code = "import os,sys\ndef myFunction( x,y): return x>y"
 
-    print("--- Test Python valide ---")
+    logger.info("--- Test Python valide ---")
     result_good = await validator.validate(good_code)
-    print(f"Passé: {result_good.passed}\n{result_good.model_dump(exclude_defaults=True)}\n")
+    logger.info(f"Passé: {result_good.passed}\n{result_good.model_dump(exclude_defaults=True)}\n")
     assert result_good.passed
 
-    print("--- Test Python syntaxe incorrecte ---")
+    logger.info("--- Test Python syntaxe incorrecte ---")
     result_syntax = await validator.validate(bad_syntax_code)
-    print(f"Passé: {result_syntax.passed}\n{result_syntax.model_dump(exclude_defaults=True)}\n")
+    logger.info(f"Passé: {result_syntax.passed}\n{result_syntax.model_dump(exclude_defaults=True)}\n")
     assert not result_syntax.passed and result_syntax.syntax_error
 
-    print("--- Test Python style incorrect ---")
+    logger.info("--- Test Python style incorrect ---")
     result_style = await validator.validate(bad_style_code)
-    print(f"Passé: {result_style.passed}\n{result_style.model_dump(exclude_defaults=True)}\n")
+    logger.info(f"Passé: {result_style.passed}\n{result_style.model_dump(exclude_defaults=True)}\n")
     assert not result_style.passed and (result_style.linting_errors or result_style.formatting_errors)
 
     # --- Cas de tests Playwright ---
@@ -183,18 +183,18 @@ def test_homepage_has_title(page: Page):
 def test_does_nothing(page):
     pass
 '''
-    print("--- Test Playwright valide ---")
+    logger.info("--- Test Playwright valide ---")
     result_pw_good = await validator.validate(valid_playwright_code, code_type="playwright")
-    print(f"Passé: {result_pw_good.passed}\n{result_pw_good.model_dump(exclude_defaults=True)}\n")
+    logger.info(f"Passé: {result_pw_good.passed}\n{result_pw_good.model_dump(exclude_defaults=True)}\n")
     assert result_pw_good.passed
 
-    print("--- Test Playwright invalide (manque de bonnes pratiques) ---")
+    logger.info("--- Test Playwright invalide (manque de bonnes pratiques) ---")
     result_pw_bad = await validator.validate(invalid_playwright_code, code_type="playwright")
-    print(f"Passé: {result_pw_bad.passed}\n{result_pw_bad.model_dump(exclude_defaults=True)}\n")
+    logger.info(f"Passé: {result_pw_bad.passed}\n{result_pw_bad.model_dump(exclude_defaults=True)}\n")
     assert not result_pw_bad.passed and result_pw_bad.playwright_warnings
 
 
 if __name__ == "__main__":
-    print("Exécution des tests du CodeValidator...")
+    logger.info("Exécution des tests du CodeValidator...")
     asyncio.run(main())
-    print("\nTests terminés.")
+    logger.info("\nTests terminés.")

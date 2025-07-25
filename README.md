@@ -93,20 +93,20 @@ Altiora_project/
 |-- services/                                                # 📦 Micro-services conteneurisés
 |   |-- alm/                                                 # 📁 Service ALM (Application Lifecycle Management)
 |   |   |-- alm_service.py                                   # Logique du service ALM
-|   |   |-- Dockerfile.bak                                   # Backup du Dockerfile pour le service
+|   |   |-- Dockerfile                                   # Backup du Dockerfile pour le service
 |   |   |-- requirements.txt                                 # Dépendances Python du service
 |   |   |-- __init__.py                                      # Initialiseur du package
 |   |-- excel/                                               # 📁 Service de traitement Excel
-|   |   |-- Dockerfile.bak                                   # Backup du Dockerfile pour le service
+|   |   |-- Dockerfile                                   # Backup du Dockerfile pour le service
 |   |   |-- excel_service.py                                 # Logique du service Excel
 |   |   |-- requirements.txt                                 # Dépendances Python du service
 |   |   |-- __init__.py                                      # Initialiseur du package
 |   |-- ocr/                                                 # 📁 Service OCR (Reconnaissance Optique de Caractères)
-|   |   |-- Dockerfile.bak                                   # Backup du Dockerfile pour le service
+|   |   |-- Dockerfile                                   # Backup du Dockerfile pour le service
 |   |   |-- ocr_wrapper.py                                   # Wrapper pour le service OCR
 |   |   |-- __init__.py                                      # Initialiseur du package
 |   \---playwright/                                        # 📁 Service d'automatisation avec Playwright
-|       |-- Dockerfile.bak                                   # Backup du Dockerfile pour le service
+|       |-- Dockerfile                                   # Backup du Dockerfile pour le service
 |       |-- playwright_runner.py                             # Exécuteur de tests Playwright
 |       |-- requirements.txt                                 # Dépendances Python du service
 |       |-- __init__.py                                      # Initialiseur du package

@@ -52,7 +52,7 @@ class MemoryOptimizer:
             peak = self.opt.process.memory_info().rss
             delta_mb = (peak - self.start) / 1024 ** 2
             if delta_mb > 100:  # log only big jumps
-                print(f"[MEM] {self.name}: +{delta_mb:.1f} MB")
+                logger.info(f"[MEM] {self.name}: +{delta_mb:.1f} MB")
 
     # ------------------------------------------------------------------
     # Transparent compressed cache
@@ -81,7 +81,7 @@ class MemoryOptimizer:
                 with lz4.frame.open(path, "rb") as f:
                     return pickle.load(f)
             except (IOError, OSError, lz4.frame.LZ4FrameError, pickle.PickleError) as e:
-                print(f"Error reading from compressed cache {path}: {e}")
+                logger.info(f"Error reading from compressed cache {path}: {e}")
                 return None
 
         def set(self, key: str, value: Any) -> None:
@@ -95,7 +95,7 @@ class MemoryOptimizer:
                     oldest = next(iter(self._lru))
                     self._lru.pop(oldest).unlink(missing_ok=True)
             except (IOError, OSError, lz4.frame.LZ4FrameError, pickle.PickleError) as e:
-                print(f"Error writing to compressed cache {path}: {e}")
+                logger.info(f"Error writing to compressed cache {path}: {e}")
 
     # ------------------------------------------------------------------
     # Memory-mapped fallback for giant strings / files
@@ -110,7 +110,7 @@ class MemoryOptimizer:
             fd = os.open(file_path, os.O_RDONLY)
             return mmap.mmap(fd, 0, access=mmap.ACCESS_READ)
         except (IOError, OSError) as e:
-            print(f"Error memory-mapping file {file_path}: {e}")
+            logger.info(f"Error memory-mapping file {file_path}: {e}")
             raise
 
     # ------------------------------------------------------------------

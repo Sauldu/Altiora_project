@@ -1,8 +1,7 @@
 # tests/test_personality_quiz.py
 import pytest
-import asyncio
 from unittest.mock import patch, MagicMock
-from psychodesign.personality_quiz import PersonalityQuiz, QuizReporter
+from modules.psychodesign.personality_quiz import PersonalityQuiz
 
 
 @pytest.fixture

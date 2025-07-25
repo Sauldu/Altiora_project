@@ -1,0 +1,53 @@
+# docker-compose.ephemeral.yml
+version: "3.9"
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-ephemeral}-redis
+    ports:
+      - "6379"
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ${COMPOSE_PROJECT_NAME:-ephemeral}-ollama
+    ports:
+      - "11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    command: >
+      sh -c "sleep 10 && ollama pull qwen3:32b && tail -f /dev/null"
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    container_name: ${COMPOSE_PROJECT_NAME:-ephemeral}-api
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+      - ollama
+    environment:
+      - REDIS_URL=${REDIS_URL}
+      - OLLAMA_URL=${OLLAMA_URL}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.worker
+    container_name: ${COMPOSE_PROJECT_NAME:-ephemeral}-worker
+    depends_on:
+      - redis
+      - ollama
+    environment:
+      - REDIS_URL=${REDIS_URL}
+      - OLLAMA_URL=${OLLAMA_URL}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+
+volumes:
+  ollama_data:

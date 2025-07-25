@@ -36,7 +36,7 @@ class StateManager:
             await self._redis.ping()  # health check
         except Exception as exc:
             self._redis = None
-            print(f"⚠️  Redis unavailable – using memory fallback: {exc}")
+            logger.info(f"⚠️  Redis unavailable – using memory fallback: {exc}")
 
     async def close(self) -> None:
         """Graceful shutdown"""

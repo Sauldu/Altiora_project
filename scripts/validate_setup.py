@@ -60,14 +60,14 @@ class SetupValidator:
 
         # Print results
         if self.errors:
-            print("❌ ERRORS FOUND:")
+            logger.info("❌ ERRORS FOUND:")
             for error in self.errors:
-                print(f"  - {error}")
+                logger.info(f"  - {error}")
 
         if self.warnings:
-            print("\n⚠️  WARNINGS:")
+            logger.info("\n⚠️  WARNINGS:")
             for warning in self.warnings:
-                print(f"  - {warning}")
+                logger.info(f"  - {warning}")
 
         return len(self.errors) == 0
 

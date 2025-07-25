@@ -6,7 +6,7 @@ from dependency_injector.wiring import Provide
 from src.core.model_memory_manager import ModelMemoryManager
 from src.models.qwen3.qwen3_interface import Qwen3OllamaInterface  # uniquement Qwen3 ici
 from src.models.starcoder2.starcoder2_interface import StarCoder2OllamaInterface
-from configs.settings import get_settings
+from configs.settings_loader import get_settings
 from src.orchestrator import Orchestrator
 
 class Container(containers.DeclarativeContainer):

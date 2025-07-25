@@ -324,31 +324,31 @@ SYSTEM Tu es un expert optimisé pour CPU avec adaptateur LoRA spécialisé.
     def _print_optimization_report(self):
         """Affiche le rapport d'optimisation"""
         print("\n" + "="*80)
-        print("📊 RAPPORT D'OPTIMISATION CPU")
+        logger.info("📊 RAPPORT D'OPTIMISATION CPU")
         print("="*80)
         
         for model_type, result in self.results.items():
-            print(f"\n🔸 {model_type.upper()}")
-            print(f"   Configuration optimale:")
+            logger.info(f"\n🔸 {model_type.upper()}")
+            logger.info(f"   Configuration optimale:")
             
             config = result["config"]
             perf = result["performance"]
             
-            print(f"   - Threads: {config['num_threads']}")
-            print(f"   - Contexte: {config['context_size']} tokens")
-            print(f"   - Batch interne: {config['n_batch']}")
-            print(f"   - Batch size: {config['batch_size']}")
+            logger.info(f"   - Threads: {config['num_threads']}")
+            logger.info(f"   - Contexte: {config['context_size']} tokens")
+            logger.info(f"   - Batch interne: {config['n_batch']}")
+            logger.info(f"   - Batch size: {config['batch_size']}")
             
-            print(f"\n   Performance:")
-            print(f"   - Vitesse: {perf['tokens_per_second']:.1f} tokens/s")
-            print(f"   - Latence: {perf['latency']:.2f}s")
-            print(f"   - RAM utilisée: {perf['memory_usage']:.1f}GB")
+            logger.info(f"\n   Performance:")
+            logger.info(f"   - Vitesse: {perf['tokens_per_second']:.1f} tokens/s")
+            logger.info(f"   - Latence: {perf['latency']:.2f}s")
+            logger.info(f"   - RAM utilisée: {perf['memory_usage']:.1f}GB")
         
-        print("\n💡 Recommandations:")
-        print("1. Utiliser les Modelfiles optimisés dans configs/")
-        print("2. Fermer les applications gourmandes en RAM")
-        print("3. Désactiver le turbo boost si surchauffe")
-        print("4. Monitorer avec htop pendant l'inférence")
+        logger.info("\n💡 Recommandations:")
+        logger.info("1. Utiliser les Modelfiles optimisés dans configs/")
+        logger.info("2. Fermer les applications gourmandes en RAM")
+        logger.info("3. Désactiver le turbo boost si surchauffe")
+        logger.info("4. Monitorer avec htop pendant l'inférence")
 
 
 async def main():

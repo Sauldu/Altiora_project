@@ -246,6 +246,6 @@ if __name__ == "__main__":
         ]
         for s in samples:
             res = await policy.scan(s)
-            print(f"{s} → {res}")
+            logger.info(f"{s} → {res}")
 
     asyncio.run(demo())

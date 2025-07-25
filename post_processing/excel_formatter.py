@@ -135,18 +135,18 @@ async def main():
     ]
 
     output_file = "reports/matrice_de_test_formatee.xlsx"
-    print(f"Génération du fichier Excel de démonstration : {output_file}")
+    logger.info(f"Génération du fichier Excel de démonstration : {output_file}")
 
     validation_errors = formatter.format_test_matrix(test_data, output_file)
 
     if validation_errors:
-        print("\nErreurs de validation détectées :")
+        logger.info("\nErreurs de validation détectées :")
         for error in validation_errors:
-            print(f"- {error}")
+            logger.info(f"- {error}")
     else:
-        print("\nAucune erreur de validation.")
+        logger.info("\nAucune erreur de validation.")
 
-    print("\nFichier Excel généré avec succès.")
+    logger.info("\nFichier Excel généré avec succès.")
 
 
 if __name__ == "__main__":

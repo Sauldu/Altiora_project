@@ -13,7 +13,7 @@ def main():
     env_file = Path(".env")
 
     if env_file.exists():
-        print("⚠️  .env existe déjà !")
+        logger.info("⚠️  .env existe déjà !")
         response = input("Écraser ? [y/N]: ")
         if response.lower() != 'y':
             return
@@ -34,10 +34,10 @@ def main():
             for key, value in secrets.items():
                 f.write(f"{key}={value}\n")
 
-        print(f"✅ Secrets générés dans {env_file}")
-        print("🔒 Assurez-vous d’ajouter .env à .gitignore")
+        logger.info(f"✅ Secrets générés dans {env_file}")
+        logger.info("🔒 Assurez-vous d’ajouter .env à .gitignore")
     except (IOError, OSError) as e:
-        print(f"Error writing to .env file: {e}")
+        logger.info(f"Error writing to .env file: {e}")
 
 
 if __name__ == "__main__":

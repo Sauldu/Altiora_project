@@ -22,4 +22,4 @@ def rotate_monthly():
         dst.write_bytes(cipher.encrypt_file(dst.with_suffix(".tar")))
         dst.with_suffix(".tar").unlink()
     except (IOError, OSError, tarfile.ReadError) as e:
-        print(f"Error during audit log rotation: {e}")
+        logger.info(f"Error during audit log rotation: {e}")

@@ -132,10 +132,10 @@ page.goto("https://example.com")
 time.sleep(2)
 '''
 
-        print("--- GOOD ---")
+        logger.info("--- GOOD ---")
         print(await rules.validate(good, workflow="test"))
 
-        print("\n--- BAD ---")
+        logger.info("\n--- BAD ---")
         print(await rules.validate(bad, workflow="test"))
 
 

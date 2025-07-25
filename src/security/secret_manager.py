@@ -64,5 +64,5 @@ class SecretsManager:
 
         for key, value in secrets_to_generate.items():
             if not os.getenv(key):
-                print(f"⚠️  Secret généré automatiquement : {key}")
-                print(f"   Ajoutez dans votre .env : {key}={value}")
+                logger.info(f"⚠️  Secret généré automatiquement : {key}")
+                logger.info(f"   Ajoutez dans votre .env : {key}={value}")

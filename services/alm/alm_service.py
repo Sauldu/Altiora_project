@@ -107,7 +107,7 @@ async def create_work_item(item: WorkItem) -> Dict[str, Any]:
 # --- Pour un lancement direct (débogage) ---
 if __name__ == "__main__":
     import uvicorn
-    print("Lancement du service ALM sur http://localhost:8002")
-    print(f"URL de l'API ALM configurée : {settings.alm_api_url}")
-    print(f"Clé d'API ALM configurée : {'Oui' if settings.alm_api_key else 'Non'}")
+    logger.info("Lancement du service ALM sur http://localhost:8002")
+    logger.info(f"URL de l'API ALM configurée : {settings.alm_api_url}")
+    logger.info(f"Clé d'API ALM configurée : {'Oui' if settings.alm_api_key else 'Non'}")
     uvicorn.run(app, host="0.0.0.0", port=8002)

@@ -606,7 +606,7 @@ if __name__ == "__main__":
         # Générer un rapport
         dashboard = EthicalDashboard(safe)
         print(dashboard.generate_report("demo_user"))
-        print("\n" + "="*50 + "\n")
+        logger.info("\n" + "="*50 + "\n")
         print(dashboard.generate_report())
 
     asyncio.run(demo())

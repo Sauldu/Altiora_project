@@ -1,9 +1,8 @@
 # tests/test_altiora_core.py
 import pytest
 import datetime
-import asyncio
-from unittest.mock import AsyncMock, MagicMock
-from psychodesign.altiora_core import AltioraCore, PersonalityEvolution, LearningProposal
+from unittest.mock import MagicMock
+from modules.psychodesign import AltioraCore, PersonalityEvolution, LearningProposal
 
 
 @pytest.fixture

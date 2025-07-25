@@ -1,4 +1,4 @@
 # configs/__init__.py
-from .settings import Settings, get_settings
+from .settings_loader import UnifiedSettings, get_settings
 
-__all__ = ['Settings', 'get_settings']
+__all__ = ['UnifiedSettings', 'get_settings']

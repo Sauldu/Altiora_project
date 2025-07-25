@@ -10,7 +10,7 @@ class ModelMemoryManager:
     def __init__(self, max_memory_gb: float = 16.0):
         self.max_memory_gb = max_memory_gb
         self.loaded_models: Dict[str, Dict[str, Any]] = {}
-        print(f"Memory Manager initialized with a limit of {max_memory_gb} GB.")
+        logger.info(f"Memory Manager initialized with a limit of {max_memory_gb} GB.")
 
     def can_load_model(self, model_name: str, size_gb: float) -> bool:
         """Check if model can be loaded without exceeding memory limits"""
@@ -38,7 +38,7 @@ class ModelMemoryManager:
 
         # Find the least recently used model
         oldest_model_name = min(self.loaded_models, key=lambda k: self.loaded_models[k]['last_used'])
-        print(f"Memory limit reached. Unloading least recently used model: {oldest_model_name}")
+        logger.info(f"Memory limit reached. Unloading least recently used model: {oldest_model_name}")
 
         # Remove the model from the dictionary
         del self.loaded_models[oldest_model_name]
@@ -50,7 +50,7 @@ class ModelMemoryManager:
 
     async def _load_full_model(self, model_name: str):
         """Load the full model without quantization"""
-        print(f"Loading full model: {model_name}")
+        logger.info(f"Loading full model: {model_name}")
         try:
             model = AutoModelForCausalLM.from_pretrained(
                 model_name,
@@ -65,15 +65,15 @@ class ModelMemoryManager:
                 'last_used': time.time(),
                 'size': model_size
             }
-            print(f"Model {model_name} loaded successfully.")
+            logger.info(f"Model {model_name} loaded successfully.")
             return model
         except Exception as e:
-            print(f"Failed to load model {model_name}: {e}")
+            logger.info(f"Failed to load model {model_name}: {e}")
             raise
 
     async def _load_quantized_model(self, model_name: str):
         """Load the quantized model"""
-        print(f"Loading quantized model: {model_name}")
+        logger.info(f"Loading quantized model: {model_name}")
         try:
             model = AutoModelForCausalLM.from_pretrained(
                 model_name,
@@ -89,10 +89,10 @@ class ModelMemoryManager:
                 'last_used': time.time(),
                 'size': model_size
             }
-            print(f"Quantized model {model_name} loaded successfully.")
+            logger.info(f"Quantized model {model_name} loaded successfully.")
             return model
         except Exception as e:
-            print(f"Failed to load quantized model {model_name}: {e}")
+            logger.info(f"Failed to load quantized model {model_name}: {e}")
             raise
 
     def _get_model_size(self, model) -> float:

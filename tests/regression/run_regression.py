@@ -47,18 +47,18 @@ async def main():
 
     # Affichage résumé
     print("\n" + "=" * 60)
-    print("📊 REGRESSION TEST SUMMARY")
+    logger.info("📊 REGRESSION TEST SUMMARY")
     print("=" * 60)
-    print(f"Total tests: {len(results['tests'])}")
-    print(f"✅ Passed: {results['summary']['passed']}")
-    print(f"❌ Failed: {results['summary']['failed']}")
-    print(f"🆕 New: {results['summary']['new']}")
+    logger.info(f"Total tests: {len(results['tests'])}")
+    logger.info(f"✅ Passed: {results['summary']['passed']}")
+    logger.info(f"❌ Failed: {results['summary']['failed']}")
+    logger.info(f"🆕 New: {results['summary']['new']}")
 
     if results["summary"]["failed"] > 0:
-        print("\n⚠️  Some tests failed - check the detailed report")
+        logger.info("\n⚠️  Some tests failed - check the detailed report")
         exit(1)
     else:
-        print("\n🎉 All regression tests passed!")
+        logger.info("\n🎉 All regression tests passed!")
 
 
 async def _create_sample_fixtures():

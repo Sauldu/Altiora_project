@@ -137,9 +137,9 @@ def export_project_to_markdown(directory, output_file="Altiora.md", split_count=
                 with open(part_output_path, "w", encoding="utf-8") as f:
                     f.writelines(part_content)
             except (IOError, OSError) as e:
-                print(f"Error writing to {part_output_path}: {e}")
+                logger.info(f"Error writing to {part_output_path}: {e}")
 
-        print(f"{split_count} fichiers générés avec l'arborescence uniquement dans la première partie : {base_name}_*.md")
+        logger.info(f"{split_count} fichiers générés avec l'arborescence uniquement dans la première partie : {base_name}_*.md")
     else:
         # Ajouter l'arborescence pour le fichier unique
         header = "# Structure et contenu du projet\n\n" + structure_tree
@@ -147,9 +147,9 @@ def export_project_to_markdown(directory, output_file="Altiora.md", split_count=
         try:
             with open(output_file, "w", encoding="utf-8") as f:
                 f.writelines(full_content)
-            print(f"Fichier {output_file} généré !")
+            logger.info(f"Fichier {output_file} généré !")
         except (IOError, OSError) as e:
-            print(f"Error writing to {output_file}: {e}")
+            logger.info(f"Error writing to {output_file}: {e}")
 
 
 if __name__ == "__main__":

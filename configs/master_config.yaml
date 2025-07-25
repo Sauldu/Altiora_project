@@ -1,0 +1,180 @@
+# ==========================================================
+# Altiora – Master Configuration
+# Une seule source de vérité pour tous les environnements
+# Les variables ${VAR:-default} sont résolues au démarrage
+# ==========================================================
+
+version: "1.0"
+generated_at: 2025-07-25
+
+# ----------------------------------------------------------
+# 1. Profils d’environnement
+# ----------------------------------------------------------
+profiles:
+  development:
+    description: "Local – charge minimale"
+    redis: redis://localhost:6379
+    ollama: http://localhost:11434
+    debug: true
+    log_level: DEBUG
+    mock_services: true
+    cache_ttl_sfd: 3600
+    cache_ttl_tests: 1800
+
+  staging:
+    description: "Pré-production – même image que prod"
+    redis: ${STAGING_REDIS_URL:-redis://staging-redis:6379}
+    ollama: ${STAGING_OLLAMA_URL:-http://staging-ollama:11434}
+    debug: false
+    log_level: INFO
+    mock_services: false
+    cache_ttl_sfd: 21600
+    cache_ttl_tests: 10800
+
+  production:
+    description: "Production – HA & sécurité"
+    redis: ${REDIS_URL}
+    ollama: ${OLLAMA_URL}
+    debug: false
+    log_level: WARNING
+    mock_services: false
+    cache_ttl_sfd: 86400
+    cache_ttl_tests: 43200
+
+# ----------------------------------------------------------
+# 2. Services partagés (valeurs par défaut)
+# ----------------------------------------------------------
+services:
+  redis:
+    host: ${REDIS_HOST:-localhost}
+    port: ${REDIS_PORT:-6379}
+    db: ${REDIS_DB:-0}
+    password: ${REDIS_PASSWORD:-}
+    ssl: ${REDIS_SSL:-false}
+    pool_size: 20
+    timeout: 5
+
+  ollama:
+    host: ${OLLAMA_HOST:-localhost}
+    port: ${OLLAMA_PORT:-11434}
+    timeout: ${OLLAMA_TIMEOUT:-180}
+    keep_alive: ${OLLAMA_KEEP_ALIVE:-30m}
+    memory_limit: ${OLLAMA_MEMORY_LIMIT:-8g}
+    cpu_limit: ${OLLAMA_CPU_LIMIT:-4}
+
+# ----------------------------------------------------------
+# 3. Modèles IA (héritage selon profil)
+# ----------------------------------------------------------
+models:
+  qwen3:
+    name: "qwen3-sfd-analyzer"
+    base_model: "qwen3:32b-q4_K_M"
+    role: "Analyse des SFD"
+    temperature: 0.7
+    max_tokens: 4096
+    context_size: 32768
+
+  starcoder2:
+    name: "starcoder2-playwright"
+    base_model: "starcoder2:15b-q8_0"
+    role: "Génération de tests"
+    temperature: 0.2
+    max_tokens: 2048
+    context_size: 8192
+
+# ----------------------------------------------------------
+# 4. Micro-services
+# ----------------------------------------------------------
+micro_services:
+  ocr:
+    host: ${OCR_HOST:-localhost}
+    port: ${OCR_PORT:-8001}
+    timeout: ${OCR_TIMEOUT:-60}
+    health_path: "/health"
+    max_retries: 3
+
+  alm:
+    host: ${ALM_HOST:-localhost}
+    port: ${ALM_PORT:-8002}
+    timeout: ${ALM_TIMEOUT:-120}
+    health_path: "/health"
+    max_retries: 2
+
+  excel:
+    host: ${EXCEL_HOST:-localhost}
+    port: ${EXCEL_PORT:-8003}
+    timeout: ${EXCEL_TIMEOUT:-60}
+    health_path: "/health"
+    max_retries: 3
+
+  playwright:
+    host: ${PLAYWRIGHT_HOST:-localhost}
+    port: ${PLAYWRIGHT_PORT:-8004}
+    timeout: ${PLAYWRIGHT_TIMEOUT:-300}
+    workers: ${PLAYWRIGHT_WORKERS:-4}
+    browser: ${PLAYWRIGHT_BROWSER:-chromium}
+    headed: ${PLAYWRIGHT_HEADED:-false}
+
+# ----------------------------------------------------------
+# 5. Pipeline & Retry
+# ----------------------------------------------------------
+pipeline:
+  max_parallel_tests: ${MAX_PARALLEL_TESTS:-5}
+  max_parallel_scenarios: ${MAX_PARALLEL_SCENARIOS:-10}
+  retry_max_attempts: ${RETRY_MAX_ATTEMPTS:-3}
+  retry_backoff_factor: ${RETRY_BACKOFF_FACTOR:-2.0}
+  retry_max_delay: ${RETRY_MAX_DELAY:-30}
+  fallback_enabled: ${FALLBACK_ENABLED:-true}
+
+# ----------------------------------------------------------
+# 6. Sécurité & Limites
+# ----------------------------------------------------------
+security:
+  jwt_secret_key: ${JWT_SECRET_KEY:-change-me}
+  jwt_algorithm: HS256
+  jwt_expiration_minutes: ${JWT_EXPIRATION:-1440}
+  rate_limit_enabled: ${RATE_LIMIT_ENABLED:-true}
+  rate_limit_requests: ${RATE_LIMIT_REQUESTS:-100}
+  rate_limit_window_seconds: ${RATE_LIMIT_WINDOW:-60}
+  allowed_origins:
+    - ${FRONTEND_URL:-http://localhost:3000}
+
+# ----------------------------------------------------------
+# 7. Logging & Monitoring
+# ----------------------------------------------------------
+logging:
+  level: ${LOG_LEVEL:-INFO}
+  format: ${LOG_FORMAT:-json}
+  file: ${LOG_FILE:-./logs/app.log}
+  max_size_mb: ${LOG_MAX_SIZE:-100}
+  backup_count: ${LOG_BACKUP_COUNT:-5}
+
+monitoring:
+  prometheus_enabled: ${PROMETHEUS_ENABLED:-false}
+  prometheus_port: ${PROMETHEUS_PORT:-9090}
+  dash_enabled: ${DASH_ENABLED:-false}
+  dash_port: ${DASH_PORT:-8050}
+
+# ----------------------------------------------------------
+# 8. Répertoires & Docker
+# ----------------------------------------------------------
+directories:
+  data: ${DATA_DIR:-./data}
+  models: ${MODELS_DIR:-./models}
+  logs: ${LOGS_DIR:-./logs}
+  reports: ${REPORTS_DIR:-./reports}
+  temp: ${TEMP_DIR:-./temp}
+  cache: ${CACHE_DIR:-./cache}
+
+docker:
+  project_name: ${COMPOSE_PROJECT_NAME:-altiora}
+  buildkit: ${DOCKER_BUILDKIT:-1}
+
+# ----------------------------------------------------------
+# 9. Règles de surcharge via variables
+# ----------------------------------------------------------
+# Exemples :
+# ENVIRONMENT=production \
+# REDIS_URL=rediss://prod-redis:6380 \
+# OLLAMA_URL=https://ollama.prod.internal \
+# docker compose up

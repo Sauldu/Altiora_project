@@ -145,28 +145,28 @@ async def main():
     await evolution.add_training_example(new_example)
 
     # 2. Déclencher un cycle de fine-tuning (simulation)
-    print("\n--- Déclenchement du Fine-Tuning ---")
+    logger.info("\n--- Déclenchement du Fine-Tuning ---")
     # Pour la démo, nous allons simuler que le script existe.
     if not TRAINING_SCRIPT_PATH.exists():
         TRAINING_SCRIPT_PATH.parent.mkdir(parents=True, exist_ok=True)
         TRAINING_SCRIPT_PATH.write_text("print('Simulating a successful training run...')")
     
     start_result = await evolution.trigger_finetuning_cycle(min_new_examples=1)
-    print(f"Résultat du déclenchement: {start_result}")
+    logger.info(f"Résultat du déclenchement: {start_result}")
 
     if start_result["status"] == "started":
-        print("Attente de la fin du processus d'entraînement (simulation)...")
+        logger.info("Attente de la fin du processus d'entraînement (simulation)...")
         await asyncio.sleep(1)  # Simuler le temps d'entraînement
         status_result = await evolution.get_training_status()
-        print(f"Statut final: {status_result}")
+        logger.info(f"Statut final: {status_result}")
 
     # 3. Trouver le dernier adaptateur (simulation)
-    print("\n--- Recherche du dernier adaptateur ---")
+    logger.info("\n--- Recherche du dernier adaptateur ---")
     # Simuler la création d'un adaptateur
     (ADAPTERS_OUTPUT_DIR / "checkpoint-100").mkdir(exist_ok=True)
     (ADAPTERS_OUTPUT_DIR / "checkpoint-200").mkdir(exist_ok=True)
     latest = evolution.get_latest_adapter()
-    print(f"Dernier adaptateur trouvé: {latest}")
+    logger.info(f"Dernier adaptateur trouvé: {latest}")
     assert latest and latest.name == "checkpoint-200"
 
 

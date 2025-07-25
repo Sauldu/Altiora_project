@@ -34,7 +34,7 @@ class AltioraSetup:
     # Public flow
     # ------------------------------------------------------------------
     def run(self, *, skip_services: bool = False, dev_mode: bool = False) -> None:
-        print("🚀 Altiora installer")
+        logger.info("🚀 Altiora installer")
         print("=" * 60)
 
         self.check_python_version()
@@ -176,16 +176,16 @@ class AltioraSetup:
     # ------------------------------------------------------------------
     def print_summary(self) -> None:
         print("\n" + "=" * 60)
-        print("📊 Summary")
+        logger.info("📊 Summary")
         for label, items in (
                 ("✅", self.successes),
                 ("⚠️", self.warnings),
                 ("❌", self.errors),
         ):
             if items:
-                print(f"{label} {len(items)}")
+                logger.info(f"{label} {len(items)}")
                 for item in items:
-                    print(f"   • {item}")
+                    logger.info(f"   • {item}")
         if self.errors:
             sys.exit(1)
 
@@ -200,7 +200,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if not Path("requirements.txt").exists():
-        print("❌ Run from project root")
+        logger.info("❌ Run from project root")
         sys.exit(1)
 
     AltioraSetup().run(skip_services=args.skip_services, dev_mode=args.dev)

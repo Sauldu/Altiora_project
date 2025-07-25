@@ -18,7 +18,7 @@ import numpy as np
 
 from guardrails.admin_control_system import AdminControlSystem, AdminCommand
 from guardrails.ethical_safeguards import EthicalSafeguards
-from psychodesign.personality_quiz import PersonalityProfile
+from modules.psychodesign.personality_quiz import PersonalityProfile
 
 
 @dataclass

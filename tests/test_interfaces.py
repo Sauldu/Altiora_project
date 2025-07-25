@@ -7,7 +7,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 
 from src.models.qwen3.qwen3_interface import Qwen3OllamaInterface
-from models.starcoder2.starcoder2_interface import StarCoder2OllamaInterface, PlaywrightTestConfig, TestType as TestType
+from src.models.starcoder2.starcoder2_interface import StarCoder2OllamaInterface, PlaywrightTestConfig, TestType as TestType
 
 
 @pytest.fixture

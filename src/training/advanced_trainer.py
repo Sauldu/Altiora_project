@@ -81,7 +81,7 @@ class AltioraModelTrainer:
 
         trainer.train()
         trainer.save_model()
-        print(f"Training complete. Model saved to: {training_args.output_dir}")
+        logger.info(f"Training complete. Model saved to: {training_args.output_dir}")
 
     @staticmethod
     def compute_metrics(eval_pred):

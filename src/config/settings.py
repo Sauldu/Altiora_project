@@ -66,7 +66,7 @@ class Settings(BaseSettings):
                 data = yaml.safe_load(f)
             return cls(**data)
         except (IOError, OSError, yaml.YAMLError) as e:
-            print(f"Error loading configuration from {path}: {e}")
+            logger.info(f"Error loading configuration from {path}: {e}")
             raise
 
 # Singleton pour les paramètres

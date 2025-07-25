@@ -1,19 +1,33 @@
 # src/orchestrator.py
 import logging
+from datetime import time
+from multiprocessing import context
 from pathlib import Path
 from typing import Dict, Any
 
 import aiofiles
 import tenacity
 import yaml
+from torch.backends.opt_einsum import strategy
 
-from configs.settings import get_settings
+from configs.settings_loader import get_settings
 from src.core.strategies.strategy_registry import StrategyRegistry
 from src.models.qwen3.qwen3_interface import Qwen3OllamaInterface
 from src.models.sfd_models import SFDAnalysisRequest
 from src.repositories.scenario_repository import ScenarioRepository
+from src.monitoring.structured_logger import logger
 
 logger = logging.getLogger(__name__)
+
+# Configuration par défaut si le fichier n’existe pas
+DEFAULT_SERVICES_YAML = """
+services:
+  sfd_analysis:
+    enabled: true
+    timeout: 120
+  cache:
+    ttl: 3600
+"""
 
 
 class Orchestrator:
@@ -36,15 +50,30 @@ class Orchestrator:
         self._services: Dict[str, Any] = {}
 
     async def initialize(self) -> None:
+        """
+        Initialise l’orchestrateur :
+        - charge ou crée le fichier services.yaml
+        - initialise les dépendances
+        """
         try:
             async with aiofiles.open(self.config_path, "r") as f:
                 cfg = yaml.safe_load(await f.read())
-        except yaml.YAMLError as e:
-            raise ValueError(f"Erreur de parsing YAML dans {self.config_path}: {e}") from e
         except FileNotFoundError:
-            raise FileNotFoundError(
-                f"Configuration absente : {self.config_path}"
+            logger.warning(
+                f"Configuration absente : {self.config_path}. "
+                "Création du fichier par défaut."
             )
+            # Créer le dossier configs s’il n’existe pas
+            self.config_path.parent.mkdir(parents=True, exist_ok=True)
+            # Écriture de la configuration par défaut
+            async with aiofiles.open(self.config_path, "w") as f:
+                await f.write(DEFAULT_SERVICES_YAML)
+            cfg = yaml.safe_load(DEFAULT_SERVICES_YAML)
+        except yaml.YAMLError as e:
+            raise ValueError(
+                f"Erreur de parsing YAML dans {self.config_path}: {e}"
+            ) from e
+
         self._services = cfg.get("services", {})
         self.qwen3 = Qwen3OllamaInterface()
         await self.qwen3.initialize()
@@ -57,27 +86,20 @@ class Orchestrator:
         stop=tenacity.stop_after_attempt(3),
         wait=tenacity.wait_fixed(1)
     )
-    async def process_sfd_to_tests(
-            self, sfd_request: SFDAnalysisRequest
-    ) -> Dict[str, Any] | None:
-        """Process SFD with proper error handling"""
+    async def process_sfd_to_tests(self, sfd_request: SFDAnalysisRequest) -> Dict[str, Any]:
+        start = time.perf_counter()
         try:
-            if len(sfd_request.content) > 1_000_000:  # 1MB limit
-                raise ValueError("SFD content too large")
-
-            context = {"sfd_request": sfd_request}
-
-            strategy_cls = StrategyRegistry.get("sfd_analysis")
-            if not strategy_cls:
-                raise ValueError("Stratégie 'sfd_analysis' non enregistrée")
-
-            strategy = strategy_cls(self.qwen3)
             result = await strategy.execute(context)
+            logger.info(
+                "sfd_processed",
+                extra={
+                    "sfd_id": sfd_request.id,
+                    "duration_ms": int((time.perf_counter() - start) * 1000),
+                    "model": "qwen3",
+                    "scenarios_extracted": len(result.get("scenarios", [])),
+                },
+            )
             return result
-
-        except ValueError as e:
-            logger.error(f"Validation error: {e}")
+        except Exception as exc:
+            logger.error("sfd_failed", extra={"sfd_id": sfd_request.id, "error": str(exc)})
             raise
-        except Exception as e:
-            logger.error(f"Unexpected error processing SFD: {e}")
-            return None

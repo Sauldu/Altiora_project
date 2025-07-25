@@ -130,7 +130,7 @@ class PersonalityQuiz:
         ]
 
     async def start_quiz(self) -> PersonalityProfile:
-        print(f"\nQuiz de personnalisation Altiora pour {self.user_id}")
+        logger.info(f"\nQuiz de personnalisation Altiora pour {self.user_id}")
         print("=" * 60)
 
         for question in self.questions:
@@ -146,7 +146,7 @@ class PersonalityQuiz:
     # ------------------------------------------------------------------
 
     async def _ask_question(self, question: Dict[str, Any]) -> None:
-        print(f"\n{question['question']}")
+        logger.info(f"\n{question['question']}")
 
         if question["type"] == "choice":
             response = await self._handle_choice_question(question)
@@ -170,7 +170,7 @@ class PersonalityQuiz:
     @staticmethod
     async def _handle_choice_question(question: Dict[str, Any]) -> Dict[str, Any]:
         for i, opt in enumerate(question["options"], 1):
-            print(f"  {i}. {opt['text']}")
+            logger.info(f"  {i}. {opt['text']}")
         while True:
             try:
                 choice = int(input("Votre choix (1-{}): ".format(len(question["options"]))))
@@ -178,7 +178,7 @@ class PersonalityQuiz:
                     selected = question["options"][choice - 1]
                     return {"value": selected.get("value", selected["weight"])}
             except ValueError:
-                print("Choix invalide")
+                logger.info("Choix invalide")
 
     @staticmethod
     async def _handle_scale_question(_question: Dict[str, Any]) -> Dict[str, Any]:
@@ -193,10 +193,10 @@ class PersonalityQuiz:
     async def _handle_calibration_question(self, question: Dict[str, Any]) -> Dict[str, Any]:
         """Gère les questions de calibration vocale"""
         if not self.recognizer or not self.microphone:
-            print("Module speech_recognition non disponible, skip calibration vocale")
+            logger.info("Module speech_recognition non disponible, skip calibration vocale")
             return {"value": "skipped", "confidence": 0.0, "vocal_features": {}}
 
-        print("\nCalibration vocale - Parlez après le signal")
+        logger.info("\nCalibration vocale - Parlez après le signal")
         input("Appuyez sur Entrée quand prêt...")
 
         try:
@@ -209,10 +209,10 @@ class PersonalityQuiz:
             self.vocal_samples.append({"text": text, "features": features, "purpose": question["purpose"]})
             return {"value": text, "confidence": 1.0, "vocal_features": features}
         except sr.UnknownValueError:
-            print("Je n'ai pas compris, réessayez...")
+            logger.info("Je n'ai pas compris, réessayez...")
             return await self._handle_calibration_question(question)
         except Exception as e:
-            print(f"Erreur lors de la calibration vocale: {e}")
+            logger.info(f"Erreur lors de la calibration vocale: {e}")
             return {"value": "error", "confidence": 0.0, "vocal_features": {}}
 
     @staticmethod
@@ -336,9 +336,9 @@ class PersonalityQuiz:
             with open(profile_path, "w", encoding="utf-8") as f:
                 json.dump(asdict(profile), f, indent=2, ensure_ascii=False, default=str)
 
-            print(f"\n✅ Profil sauvegardé: {profile_path}")
+            logger.info(f"\n✅ Profil sauvegardé: {profile_path}")
         except (IOError, OSError) as e:
-            print(f"\n❌ Erreur lors de la sauvegarde du profil: {e}")
+            logger.info(f"\n❌ Erreur lors de la sauvegarde du profil: {e}")
 
     # ------------------------------------------------------------------
     # Helpers

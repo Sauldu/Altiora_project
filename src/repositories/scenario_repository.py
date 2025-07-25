@@ -58,5 +58,5 @@ class ScenarioRepository(BaseRepository[TestScenario]):
                     data = json.load(f)
                 scenarios.append(TestScenario(**data))
             except (IOError, OSError, json.JSONDecodeError) as e:
-                print(f"Error reading scenario file {file_path}: {e}")
+                logger.info(f"Error reading scenario file {file_path}: {e}")
         return scenarios

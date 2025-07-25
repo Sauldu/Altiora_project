@@ -43,4 +43,4 @@ class DocumentationGenerator:
             with open("docs/openapi.json", "w") as f:
                 json.dump(openapi_schema, f, indent=2)
         except (IOError, OSError) as e:
-            print(f"Error writing OpenAPI spec: {e}")
+            logger.info(f"Error writing OpenAPI spec: {e}")

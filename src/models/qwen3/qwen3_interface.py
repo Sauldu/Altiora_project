@@ -12,7 +12,7 @@ from typing import Dict, Optional
 import aiohttp
 
 # Import pour l'évolution de la personnalité
-from psychodesign.personality_evolution import PersonalityEvolution
+from modules.psychodesign import PersonalityEvolution
 from src.models.sfd_models import SFDAnalysisRequest
 from src.utils.retry_handler import CircuitBreaker
 

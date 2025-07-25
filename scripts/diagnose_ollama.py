@@ -34,7 +34,7 @@ class OllamaDiagnostic:
     async def run_diagnostics(self):
         """Lance tous les tests de diagnostic"""
         print("\n" + "="*60)
-        print("🔍 DIAGNOSTIC OLLAMA - STARCODER2")
+        logger.info("🔍 DIAGNOSTIC OLLAMA - STARCODER2")
         print("="*60)
         
         # 1. Test de connectivité
@@ -60,24 +60,24 @@ class OllamaDiagnostic:
         
     async def test_connectivity(self):
         """Test de base de la connectivité Ollama"""
-        print("\n1️⃣ Test de connectivité")
+        logger.info("\n1️⃣ Test de connectivité")
         print("-" * 40)
         
         try:
             async with self.session.get(f"{self.ollama_host}/") as resp:
                 if resp.status == 200:
-                    print("✅ Ollama accessible")
+                    logger.info("✅ Ollama accessible")
                     self.results.append(("Connectivité", "OK", None))
                 else:
-                    print(f"❌ Status: {resp.status}")
+                    logger.info(f"❌ Status: {resp.status}")
                     self.results.append(("Connectivité", "FAIL", f"Status {resp.status}"))
         except Exception as e:
-            print(f"❌ Erreur de connexion: {e}")
+            logger.info(f"❌ Erreur de connexion: {e}")
             self.results.append(("Connectivité", "FAIL", str(e)))
             
     async def list_models(self):
         """Liste tous les modèles disponibles"""
-        print("\n2️⃣ Modèles disponibles")
+        logger.info("\n2️⃣ Modèles disponibles")
         print("-" * 40)
         
         try:
@@ -91,21 +91,21 @@ class OllamaDiagnostic:
                         name = model.get('name', '')
                         if 'starcoder' in name.lower() or 'star' in name.lower():
                             starcoder_models.append(name)
-                            print(f"  🌟 {name} ({model.get('size', 'N/A')})")
+                            logger.info(f"  🌟 {name} ({model.get('size', 'N/A')})")
                         else:
-                            print(f"  • {name}")
+                            logger.info(f"  • {name}")
                     
                     self.results.append(("Modèles trouvés", f"{len(models)}", 
                                        f"StarCoder: {len(starcoder_models)}"))
                     return starcoder_models
         except Exception as e:
-            print(f"❌ Erreur: {e}")
+            logger.info(f"❌ Erreur: {e}")
             self.results.append(("Liste modèles", "FAIL", str(e)))
         return []
         
     async def test_starcoder_variants(self):
         """Teste différentes variantes de StarCoder"""
-        print("\n3️⃣ Test des variantes StarCoder")
+        logger.info("\n3️⃣ Test des variantes StarCoder")
         print("-" * 40)
         
         variants = [
@@ -119,9 +119,9 @@ class OllamaDiagnostic:
         for variant in variants:
             success = await self.test_single_model(variant)
             if success:
-                print(f"  ✅ {variant} - Fonctionne")
+                logger.info(f"  ✅ {variant} - Fonctionne")
             else:
-                print(f"  ❌ {variant} - Échec")
+                logger.info(f"  ❌ {variant} - Échec")
                 
     async def test_single_model(self, model_name: str) -> bool:
         """Teste un modèle spécifique"""
@@ -160,25 +160,25 @@ class OllamaDiagnostic:
         
     async def test_api_endpoints(self):
         """Teste les différents endpoints API"""
-        print("\n4️⃣ Test des endpoints API")
+        logger.info("\n4️⃣ Test des endpoints API")
         print("-" * 40)
         
         # Trouver un modèle qui marche
         test_model = "starcoder2:15b-q8_0"  # Par défaut
         
         # Test /api/generate
-        print("\n  📍 Test /api/generate:")
+        logger.info("\n  📍 Test /api/generate:")
         response_gen = await self.test_generate_api(test_model)
         
         # Test /api/chat
-        print("\n  📍 Test /api/chat:")
+        logger.info("\n  📍 Test /api/chat:")
         response_chat = await self.test_chat_api(test_model)
         
         # Comparer les résultats
         if response_gen and response_chat:
-            print(f"\n  📊 Comparaison:")
-            print(f"     Generate: {len(response_gen)} caractères")
-            print(f"     Chat: {len(response_chat)} caractères")
+            logger.info(f"\n  📊 Comparaison:")
+            logger.info(f"     Generate: {len(response_gen)} caractères")
+            logger.info(f"     Chat: {len(response_chat)} caractères")
             
     async def test_generate_api(self, model: str) -> Optional[str]:
         """Teste l'API /generate"""
@@ -225,17 +225,17 @@ class OllamaDiagnostic:
                         data = json.loads(raw)
                         response = data.get("response", "")
                         if response:
-                            print(f"    ✅ Format {i+1}: {len(response)} chars")
+                            logger.info(f"    ✅ Format {i+1}: {len(response)} chars")
                             self.results.append((f"Generate format {i+1}", "OK", 
                                                f"{len(response)} chars"))
                             return response
                         else:
-                            print(f"    ❌ Format {i+1}: Réponse vide")
+                            logger.info(f"    ❌ Format {i+1}: Réponse vide")
                             logger.debug(f"Clés disponibles: {list(data.keys())}")
                     else:
-                        print(f"    ❌ Format {i+1}: Status {resp.status}")
+                        logger.info(f"    ❌ Format {i+1}: Status {resp.status}")
             except Exception as e:
-                print(f"    ❌ Format {i+1}: {type(e).__name__}")
+                logger.info(f"    ❌ Format {i+1}: {type(e).__name__}")
                 logger.error(f"Erreur: {e}")
         
         return None
@@ -282,22 +282,22 @@ class OllamaDiagnostic:
                         data = await resp.json()
                         content = data.get("message", {}).get("content", "")
                         if content:
-                            print(f"    ✅ Format {i+1}: {len(content)} chars")
+                            logger.info(f"    ✅ Format {i+1}: {len(content)} chars")
                             self.results.append((f"Chat format {i+1}", "OK", 
                                                f"{len(content)} chars"))
                             return content
                         else:
-                            print(f"    ❌ Format {i+1}: Contenu vide")
+                            logger.info(f"    ❌ Format {i+1}: Contenu vide")
                     else:
-                        print(f"    ❌ Format {i+1}: Status {resp.status}")
+                        logger.info(f"    ❌ Format {i+1}: Status {resp.status}")
             except Exception as e:
-                print(f"    ❌ Format {i+1}: {type(e).__name__}")
+                logger.info(f"    ❌ Format {i+1}: {type(e).__name__}")
                 
         return None
         
     async def test_prompt_formats(self):
         """Teste différents formats de prompts"""
-        print("\n5️⃣ Test des formats de prompt")
+        logger.info("\n5️⃣ Test des formats de prompt")
         print("-" * 40)
         
         model = "starcoder2:15b-q8_0"  # Utiliser le modèle de base
@@ -320,13 +320,13 @@ class OllamaDiagnostic:
         ]
         
         for name, prompt in prompts:
-            print(f"\n  🧪 Test: {name}")
+            logger.info(f"\n  🧪 Test: {name}")
             response = await self.test_prompt_response(model, prompt)
             if response:
-                print(f"    ✅ Réponse: {len(response)} caractères")
-                print(f"    📝 Extrait: {response[:100]}...")
+                logger.info(f"    ✅ Réponse: {len(response)} caractères")
+                logger.info(f"    📝 Extrait: {response[:100]}...")
             else:
-                print(f"    ❌ Pas de réponse")
+                logger.info(f"    ❌ Pas de réponse")
                 
     async def test_prompt_response(self, model: str, prompt: str) -> Optional[str]:
         """Teste un prompt spécifique"""
@@ -355,7 +355,7 @@ class OllamaDiagnostic:
         
     async def test_parameters(self):
         """Teste différentes combinaisons de paramètres"""
-        print("\n6️⃣ Test des paramètres")
+        logger.info("\n6️⃣ Test des paramètres")
         print("-" * 40)
         
         model = "starcoder2:15b-q8_0"
@@ -370,7 +370,7 @@ class OllamaDiagnostic:
         ]
         
         for param_set in param_sets:
-            print(f"\n  ⚙️ {param_set['name']}: ", end="")
+            logger.info(f"\n  ⚙️ {param_set['name']}: ", end="")
             
             try:
                 payload = {
@@ -389,22 +389,22 @@ class OllamaDiagnostic:
                         data = await resp.json()
                         response = data.get("response", "")
                         if response:
-                            print(f"✅ {len(response)} chars")
+                            logger.info(f"✅ {len(response)} chars")
                             self.results.append((f"Params: {param_set['name']}", 
                                                "OK", f"{len(response)} chars"))
                         else:
-                            print("❌ Réponse vide")
+                            logger.info("❌ Réponse vide")
                             self.results.append((f"Params: {param_set['name']}", 
                                                "EMPTY", "0 chars"))
                     else:
-                        print(f"❌ Status {resp.status}")
+                        logger.info(f"❌ Status {resp.status}")
             except Exception as e:
-                print(f"❌ {type(e).__name__}")
+                logger.info(f"❌ {type(e).__name__}")
                 
     def print_summary(self):
         """Affiche un résumé des résultats"""
         print("\n" + "="*60)
-        print("📊 RÉSUMÉ DU DIAGNOSTIC")
+        logger.info("📊 RÉSUMÉ DU DIAGNOSTIC")
         print("="*60)
         
         # Statistiques
@@ -413,30 +413,30 @@ class OllamaDiagnostic:
         failed = sum(1 for _, status, _ in self.results if status in ["FAIL", "ERROR"])
         empty = sum(1 for _, status, _ in self.results if status == "EMPTY")
         
-        print(f"\n📈 Statistiques:")
-        print(f"  • Tests totaux: {total_tests}")
-        print(f"  • ✅ Réussis: {successful}")
-        print(f"  • ❌ Échoués: {failed}")
-        print(f"  • 📭 Vides: {empty}")
+        logger.info(f"\n📈 Statistiques:")
+        logger.info(f"  • Tests totaux: {total_tests}")
+        logger.info(f"  • ✅ Réussis: {successful}")
+        logger.info(f"  • ❌ Échoués: {failed}")
+        logger.info(f"  • 📭 Vides: {empty}")
         
         # Recommandations
-        print(f"\n💡 Recommandations:")
+        logger.info(f"\n💡 Recommandations:")
         
         if empty > 0:
-            print("  1. Le problème de réponse vide est confirmé")
-            print("  2. Essayer l'API /chat au lieu de /generate")
-            print("  3. Vérifier les logs Ollama: journalctl -u ollama -f")
+            logger.info("  1. Le problème de réponse vide est confirmé")
+            logger.info("  2. Essayer l'API /chat au lieu de /generate")
+            logger.info("  3. Vérifier les logs Ollama: journalctl -u ollama -f")
             
         if successful > 0:
-            print("  4. Certaines configurations fonctionnent")
-            print("  5. Utiliser les paramètres qui ont réussi")
+            logger.info("  4. Certaines configurations fonctionnent")
+            logger.info("  5. Utiliser les paramètres qui ont réussi")
             
         # Détails des échecs
         if failed > 0 or empty > 0:
-            print(f"\n⚠️ Détails des problèmes:")
+            logger.info(f"\n⚠️ Détails des problèmes:")
             for test, status, detail in self.results:
                 if status in ["FAIL", "ERROR", "EMPTY"]:
-                    print(f"  • {test}: {status} - {detail}")
+                    logger.info(f"  • {test}: {status} - {detail}")
                     
     async def close(self):
         """Ferme la session"""
@@ -457,11 +457,11 @@ async def main():
     finally:
         await diagnostic.close()
         
-    print("\n✅ Diagnostic terminé")
-    print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    logger.info("\n✅ Diagnostic terminé")
+    logger.info(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
 
 if __name__ == "__main__":
-    print("🚀 Lancement du diagnostic Ollama/StarCoder2")
-    print("Cela peut prendre quelques minutes...")
+    logger.info("🚀 Lancement du diagnostic Ollama/StarCoder2")
+    logger.info("Cela peut prendre quelques minutes...")
     asyncio.run(main())

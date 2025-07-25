@@ -180,6 +180,6 @@ if __name__ == "__main__":
         "response_times": [30, 35, 42, 38, 45, 52, 48],
     }
 
-    print("📊 Génération du rapport de performance…")
+    logger.info("📊 Génération du rapport de performance…")
     report_file = generator.generate_report(sample)
-    print(f"✅ Rapport sauvegardé : {report_file}")
+    logger.info(f"✅ Rapport sauvegardé : {report_file}")

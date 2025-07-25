@@ -7,79 +7,181 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
 jobs:
   test:
+    name: Unit & Coverage
     runs-on: ubuntu-latest
-
     strategy:
       matrix:
-        python-version: [3.9, 3.10, 3.11]
+        python-version: [3.9, "3.10", 3.11]
 
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
 
-    - name: Cache dependencies
-      uses: actions/cache@v3
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+      - name: Cache pip & pre-commit
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.cache/pre-commit
+          key: ${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('requirements*.txt') }}
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install -r requirements-dev.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
 
-    - name: Run linting
-      run: |
-        black --check src tests
-        flake8 src tests
-        mypy src
+      - name: Lint
+        run: |
+          black --check src tests
+          flake8 src tests
+          mypy src
 
-    - name: Run tests
-      run: |
-        pytest tests/ -v --cov=src --cov-report=xml
+      - name: Run unit tests with coverage
+        run: |
+          pytest tests/unit \
+            --cov=src \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            -v
 
-    - name: Upload coverage
-      uses: codecov/codecov-action@v3
-      with:
-        file: ./coverage.xml
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-${{ matrix.python-version }}
 
-  security:
+  integration:
+    name: Integration tests (Docker)
+    runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+      ollama:
+        image: ollama/ollama:latest
+        ports: ["11434:11434"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Pull required images
+        run: |
+          docker compose -f tests/integration/docker-compose.yml up -d
+          sleep 30  # wait for Ollama models to be ready
+
+      - name: Run integration tests
+        run: |
+          pytest tests/integration --docker -v
+
+  performance:
+    name: Performance benchmarks
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-    - name: Run Bandit
-      run: |
-        pip install bandit
-        bandit -r src/ -f json -o bandit-report.json
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
 
-    - name: Run Safety check
-      run: |
-        pip install safety
-        safety check --json
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Run performance tests
+        run: |
+          pytest tests/performance \
+            --benchmark-only \
+            --benchmark-json=benchmark.json \
+            -v
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v3
+        with:
+          name: benchmark-results
+          path: benchmark.json
+
+  security:
+    name: Security scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Bandit (SAST)
+        run: |
+          pip install bandit
+          bandit -r src/ -f json -o bandit-report.json
+
+      - name: Run Safety (vuln DB)
+        run: |
+          pip install safety
+          safety check --json
+
+      - name: Upload Bandit report
+        uses: actions/upload-artifact@v3
+        with:
+          name: bandit-report
+          path: bandit-report.json
 
   build:
-    needs: [test, security]
+    name: Build & push Docker images
+    needs: [test, integration, performance, security]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
 
+    permissions:
+      contents: read
+      packages: write
+
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-    - name: Build Docker images
-      run: |
-        docker build -t altiora-api:${{ github.sha }} -f docker/Dockerfile.api .
-        docker build -t altiora-worker:${{ github.sha }} -f docker/Dockerfile.worker .
+      - name: Log in to GHCR
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Push to registry
-      run: |
-        echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
-        docker push altiora-api:${{ github.sha }}
-        docker push altiora-worker:${{ github.sha }}
+      - name: Build & push API image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: docker/Dockerfile.api
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/altiora-api:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/altiora-api:latest
+
+      - name: Build & push Worker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: docker/Dockerfile.worker
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/altiora-worker:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/altiora-worker:latest

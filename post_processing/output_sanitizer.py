@@ -66,7 +66,7 @@ if __name__ == "__main__":
 Bien sûr, voici le code :
 ```python
 import os
-print("debug")
+logger.info("debug")
 logging.info("PII: test@example.com")
     '''
     cleaned = sanitizer.sanitize(raw, remove_debug=True)

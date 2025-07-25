@@ -94,5 +94,5 @@ async def create_test_matrix(request: TestMatrixRequest, background_tasks: Backg
 # --- Pour un lancement direct (débogage) ---
 if __name__ == "__main__":
     import uvicorn
-    print("Lancement du service Excel sur http://localhost:8003")
+    logger.info("Lancement du service Excel sur http://localhost:8003")
     uvicorn.run(app, host="0.0.0.0", port=8003)

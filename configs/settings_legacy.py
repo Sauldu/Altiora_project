@@ -1,4 +1,4 @@
-# configs/settings.py
+# configs/settings_legacy.py
 from functools import lru_cache
 
 from pydantic import BaseSettings

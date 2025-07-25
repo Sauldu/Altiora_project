@@ -75,9 +75,9 @@ if __name__ == "__main__":
         ]
         for uid, txt in samples:
             res = await gate.check(uid, txt)
-            print(f"{uid}: {txt}")
-            print(f"→ allowed: {res['allowed']}")
-            print(f"→ masked: {res['masked_text']}")
+            logger.info(f"{uid}: {txt}")
+            logger.info(f"→ allowed: {res['allowed']}")
+            logger.info(f"→ masked: {res['masked_text']}")
             print("-" * 40)
 
     asyncio.run(demo())

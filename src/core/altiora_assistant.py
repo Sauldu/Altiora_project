@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any
 
-from configs.settings import get_settings
+from configs.settings_loader import get_settings
 
 from src.infrastructure.redis_config import get_redis_client
 from src.models.sfd_models import SFDAnalysisRequest

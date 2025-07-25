@@ -15,6 +15,6 @@ def query_last_hour():
                     if datetime.fromisoformat(ev["ts"]) > cutoff:
                         print(ev)
                 except json.JSONDecodeError as e:
-                    print(f"Error decoding JSON from line in {path}: {e}")
+                    logger.info(f"Error decoding JSON from line in {path}: {e}")
         except (IOError, OSError, zstandard.ZstdError) as e:
-            print(f"Error processing file {path}: {e}")
+            logger.info(f"Error processing file {path}: {e}")
